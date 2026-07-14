@@ -6,6 +6,7 @@
 <title>Radar AEMET — Arxiu GRAF</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',sans-serif;display:flex;flex-direction:column;
@@ -79,6 +80,7 @@ select{background:#1e1e1e;border:1px solid #333;color:#ccc;padding:5px 7px;
   </div>
   <div class="sep"></div>
   <button class="btn" onclick="toggleLlegenda()">🎨</button>
+  <button class="btn" onclick="obrirGIF()">🎬 GIF</button>
   <span id="status">Carregant…</span>
 </div>
 
@@ -349,6 +351,139 @@ document.addEventListener('keydown',e=>{
 });
 
 carregarManifest();
+
+// ── GIF Export ──────────────────────────────────────────────────────────────
+var _gifWorkerUrl=null;
+async function _getGifWorker(){
+  if(_gifWorkerUrl) return _gifWorkerUrl;
+  var r=await fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js');
+  var code=await r.text();
+  _gifWorkerUrl=URL.createObjectURL(new Blob([code],{type:'application/javascript'}));
+  return _gifWorkerUrl;
+}
+function obrirGIF(){
+  if(!frames.length){alert('No hi ha frames carregats.');return;}
+  var fmt=ts=>ts.replace('T',' ').replace(':00Z',' UTC');
+  var opts=frames.map(f=>`<option value="${f.ts}">${fmt(f.ts)}</option>`).join('');
+  document.getElementById('gifInici').innerHTML=opts;
+  document.getElementById('gifFinal').innerHTML=opts;
+  document.getElementById('gifFinal').selectedIndex=frames.length-1;
+  document.getElementById('gif-progress').style.display='none';
+  document.getElementById('gif-result').style.display='none';
+  document.getElementById('btnGenGIF').disabled=false;
+  document.getElementById('gif-backdrop').style.display='block';
+  document.getElementById('gif-panel').style.display='block';
+}
+function tancarGIF(){
+  document.getElementById('gif-backdrop').style.display='none';
+  document.getElementById('gif-panel').style.display='none';
+}
+async function generarGIF(){
+  var tsInici=document.getElementById('gifInici').value;
+  var tsFinal=document.getElementById('gifFinal').value;
+  var delay=parseInt(document.getElementById('gifDelay').value)||200;
+  var fSel=frames.filter(f=>f.ts>=tsInici&&f.ts<=tsFinal);
+  if(!fSel.length){alert('Cap frame en el rang.');return;}
+  document.getElementById('gif-progress').style.display='block';
+  document.getElementById('gif-result').style.display='none';
+  document.getElementById('btnGenGIF').disabled=true;
+  var setS=s=>document.getElementById('gif-status').textContent=s;
+  var setB=p=>document.getElementById('gif-bar').style.width=p+'%';
+  // Viewport bounds clamped al radar
+  var mb=map.getBounds();
+  var lon0=Math.max(-9.5,mb.getWest()),lon1=Math.min(4.5,mb.getEast());
+  var lat0=Math.min(44.0,mb.getNorth()),lat1=Math.max(35.5,mb.getSouth());
+  if(lon1<=lon0||lat0<=lat1){alert('Vista fora del rang del radar.');document.getElementById('btnGenGIF').disabled=false;return;}
+  // Retall del PNG font (100 px/grau, 1400×850)
+  var pxd=100;
+  var sx=Math.round((lon0-(-9.5))*pxd), sy=Math.round((44.0-lat0)*pxd);
+  var sw=Math.min(Math.round((lon1-lon0)*pxd),1400-sx);
+  var sh=Math.min(Math.round((lat0-lat1)*pxd),850-sy);
+  // Canvas de sortida (màx 800px d'amplada)
+  var scale=Math.min(1,800/sw);
+  var W=Math.round(sw*scale),H=Math.round(sh*scale);
+  var canvas=document.createElement('canvas');
+  canvas.width=W; canvas.height=H;
+  var ctx=canvas.getContext('2d');
+  // Worker GIF
+  var workerUrl;
+  try{workerUrl=await _getGifWorker();}
+  catch(e){alert('Error carregant encoder GIF: '+e);document.getElementById('btnGenGIF').disabled=false;return;}
+  var gif=new GIF({workers:1,quality:10,width:W,height:H,workerScript:workerUrl});
+  // Càrrega i afegit de frames
+  setS('Carregant frames (0/'+fSel.length+')…');
+  var done=0;
+  for(var i=0;i<fSel.length;i++){
+    var f=fSel[i];
+    await new Promise(function(resolve){
+      var img=new Image();
+      img.crossOrigin='anonymous';
+      img.onload=function(){
+        ctx.fillStyle='#0d1117'; ctx.fillRect(0,0,W,H);
+        ctx.drawImage(img,sx,sy,sw,sh,0,0,W,H);
+        gif.addFrame(canvas,{delay:delay,copy:true});
+        done++; setB(done/fSel.length*70);
+        setS('Carregant frames ('+done+'/'+fSel.length+')…');
+        resolve();
+      };
+      img.onerror=resolve;
+      img.src=f.url+'?_=1';
+    });
+  }
+  setS('Codificant GIF…');
+  gif.on('progress',function(p){setB(70+p*30);});
+  gif.on('finished',function(blob){
+    var url=URL.createObjectURL(blob);
+    var lnk=document.getElementById('gif-link');
+    lnk.href=url;
+    lnk.download='radar_'+tsInici.slice(0,10).replace(/-/g,'')+'_'+tsInici.slice(11,13)+'-'+tsFinal.slice(11,13)+'h.gif';
+    document.getElementById('gif-result').style.display='block';
+    document.getElementById('gif-progress').style.display='none';
+    document.getElementById('btnGenGIF').disabled=false;
+  });
+  gif.render();
+}
 </script>
+
+<!-- GIF panel -->
+<div id="gif-backdrop" onclick="tancarGIF()"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:2900"></div>
+<div id="gif-panel"
+  style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:#111;border:1px solid #2a2a2a;border-radius:10px;padding:18px;
+  z-index:3000;min-width:300px;font-size:12px">
+  <div style="color:#5dade2;font-weight:bold;font-size:13px;margin-bottom:12px">🎬 Exportar GIF</div>
+  <div style="display:grid;gap:8px;margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="color:#888;width:45px;flex-shrink:0">Inici:</label>
+      <select id="gifInici" style="flex:1;background:#1e1e1e;border:1px solid #333;color:#ccc;padding:4px 6px;border-radius:4px;font-size:11px"></select>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="color:#888;width:45px;flex-shrink:0">Final:</label>
+      <select id="gifFinal" style="flex:1;background:#1e1e1e;border:1px solid #333;color:#ccc;padding:4px 6px;border-radius:4px;font-size:11px"></select>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="color:#888;width:45px;flex-shrink:0">Delay:</label>
+      <input type="number" id="gifDelay" value="200" min="50" max="2000" step="50"
+        style="width:65px;background:#1e1e1e;border:1px solid #333;color:#ccc;padding:4px;border-radius:4px;font-size:11px">
+      <span style="color:#555">ms/frame</span>
+    </div>
+  </div>
+  <div id="gif-progress" style="display:none;margin-bottom:10px">
+    <div id="gif-status" style="color:#888;margin-bottom:5px">Carregant…</div>
+    <div style="background:#222;border-radius:3px;height:4px">
+      <div id="gif-bar" style="background:#2980b9;height:100%;width:0%;border-radius:3px;transition:width .15s"></div>
+    </div>
+  </div>
+  <div id="gif-result" style="display:none;text-align:center;margin-bottom:10px">
+    <a id="gif-link" class="btn sel" download="radar.gif"
+      style="display:inline-block;text-decoration:none">⬇ Descarregar GIF</a>
+  </div>
+  <div style="display:flex;gap:8px;justify-content:flex-end">
+    <button class="btn" onclick="tancarGIF()">Cancel·lar</button>
+    <button class="btn sel" id="btnGenGIF" onclick="generarGIF()">▶ Generar</button>
+  </div>
+</div>
+
 </body>
 </html>
