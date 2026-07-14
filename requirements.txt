@@ -1,0 +1,4 @@
+requests
+rasterio
+numpy
+Pillow
