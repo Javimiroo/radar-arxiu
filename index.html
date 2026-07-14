@@ -425,6 +425,61 @@ function _dibuixarRadar(ctx,img,W,H){
   ctx.drawImage(tmp,0,0);
 }
 
+function _roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
+}
+
+function _dibuixarHUD(ctx,ts,W,H){
+  var fs=Math.max(10,Math.round(W/65)), pad=5;
+
+  // Timestamp (dalt-esquerra)
+  ctx.save();
+  ctx.font='bold '+fs+'px monospace';
+  var lbl=ts.replace('T',' ').replace(':00Z',' UTC');
+  var tw=ctx.measureText(lbl).width;
+  ctx.fillStyle='rgba(0,0,0,.68)';
+  _roundRect(ctx,pad,pad,tw+pad*2,fs+pad*2,3); ctx.fill();
+  ctx.fillStyle='#ffffff';
+  ctx.fillText(lbl,pad*2,pad+fs+1);
+  ctx.restore();
+
+  // Escala (baix-dreta)
+  var esEc=(curProd!=='composit');
+  var titol=esEc?'ECHOTOP':'Reflectivitat';
+  var esc=esEc?[
+    ['#0000fc','1–2 km'],['#0082ff','2–4 km'],['#00ffff','4–5 km'],
+    ['#00fa00','6–8 km'],['#ffff00','8–10 km'],['#ffa600','10–12 km'],
+    ['#ff0000','14–16 km'],['#c80050','16–20 km'],['#820a6e','> 20 km']
+  ]:[
+    ['#9cfcff','Molt feble'],['#03d3ff','Feble'],['#5aff5a','Moderat'],
+    ['#00c800','Mod-fort'],['#ffff00','Fort'],
+    ['#ff9600','Molt fort'],['#ff0000','Intens'],['#c80000','Extrem']
+  ];
+  var sw=12, sh=fs-1, lh=fs+4;
+  ctx.save();
+  ctx.font=(fs-1)+'px sans-serif';
+  var maxLW=0;
+  esc.forEach(function(e){var w=ctx.measureText(e[1]).width;if(w>maxLW)maxLW=w;});
+  var bw=pad*2+sw+5+maxLW, bh=pad*2+(fs+6)+esc.length*lh;
+  var bx=W-bw-pad, by=H-bh-pad;
+  ctx.fillStyle='rgba(0,0,0,.68)';
+  _roundRect(ctx,bx,by,bw,bh,4); ctx.fill();
+  ctx.font='bold '+fs+'px sans-serif';
+  ctx.fillStyle='#aaaaaa';
+  ctx.fillText(titol,bx+pad,by+pad+fs);
+  ctx.font=(fs-1)+'px sans-serif';
+  esc.forEach(function(e,i){
+    var ey=by+pad+(fs+6)+i*lh;
+    ctx.fillStyle=e[0]; ctx.fillRect(bx+pad,ey,sw,sh);
+    ctx.fillStyle='#cccccc'; ctx.fillText(e[1],bx+pad+sw+5,ey+sh-1);
+  });
+  ctx.restore();
+}
+
 function obrirGIF(){
   if(!frames.length){alert('No hi ha frames carregats.');return;}
   var fmt=ts=>ts.replace('T',' ').replace(':00Z',' UTC');
@@ -487,6 +542,7 @@ async function generarGIF(){
       img.onload=function(){
         ctx.drawImage(bgCanvas,0,0);
         _dibuixarRadar(ctx,img,W,H);
+        _dibuixarHUD(ctx,f.ts,W,H);
         gif.addFrame(canvas,{delay:delay,copy:true});
         done++; setB(done/fSel.length*70);
         setS('Carregant frames ('+done+'/'+fSel.length+')…');
