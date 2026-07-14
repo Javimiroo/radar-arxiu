@@ -79,7 +79,7 @@ select{background:#1e1e1e;border:1px solid #333;color:#ccc;padding:5px 7px;
     <button class="btn" onclick="switchBase('sat',this)">Sat</button>
   </div>
   <div class="sep"></div>
-  <button class="btn" id="bSat" onclick="toggleSat()">🛰 SAT</button>
+  <button class="btn" id="bSat" onclick="toggleSat()">🛰 SAT <span style="font-size:9px;background:#c0392b;color:#fff;border-radius:3px;padding:1px 4px;vertical-align:middle;letter-spacing:.5px">LIVE</span></button>
   <select id="selSat" onchange="canviarSat()"
     style="display:none;background:#1e1e1e;border:1px solid #333;color:#ccc;padding:5px 7px;border-radius:5px;font-size:12px">
     <option value="msg_fes:ir108">IR 10.8µm</option>
@@ -142,6 +142,10 @@ select{background:#1e1e1e;border:1px solid #333;color:#ccc;padding:5px 7px;
   </div>
   <div class="sep"></div>
   <span style="font-size:10px;color:#333">← → espai</span>
+  <div id="sat-note" style="display:none;font-size:10px;color:#555;margin-left:auto;text-align:right;line-height:1.4">
+    🛰 Imatge carregada directament d'EUMETSAT · no s'emmagatzema<br>
+    <span style="color:#444">Ús orientatiu de la situació global</span>
+  </div>
 </div>
 
 <script>
@@ -352,6 +356,7 @@ function toggleSat(){
   satVisible=!satVisible;
   document.getElementById('bSat').classList.toggle('sel',satVisible);
   document.getElementById('selSat').style.display=satVisible?'inline-block':'none';
+  document.getElementById('sat-note').style.display=satVisible?'block':'none';
   if(satVisible){ _afegirSat(); } else { _treuerSat(); }
 }
 function canviarSat(){
