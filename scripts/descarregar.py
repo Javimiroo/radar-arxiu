@@ -218,9 +218,12 @@ def arxivar_echotop():
             nom_rad = f"echotop_{codi}_{ts_full}"
             if nom_rad not in carregar_arxivats(dia_dir_rad):
                 canvas_ind = np.zeros((OUT_H, OUT_W, 4), dtype=np.uint8)
+                canvas_ind_alt = np.zeros((OUT_H, OUT_W), dtype=np.uint8)
                 sub = canvas_ind[oy0:oy1, ox0:ox1]
+                sub_alt = canvas_ind_alt[oy0:oy1, ox0:ox1]
                 sub[data_mask] = patch[data_mask]
                 sub[data_mask, 3] = 255
+                sub_alt[data_mask] = alt[data_mask]
                 n_act = int(data_mask.sum())
                 meta_ind = {
                     "timestamp_utc": f"20{ts[:2]}-{ts[2:4]}-{ts[4:6]}T{ts[6:8]}:{ts[8:10]}:00Z",
@@ -228,11 +231,17 @@ def arxivar_echotop():
                     "bounds": {"lon_min":ESP_LON[0],"lat_min":ESP_LAT[0],
                                "lon_max":ESP_LON[1],"lat_max":ESP_LAT[1]},
                     "shape": [OUT_H, OUT_W], "px_actius": n_act,
+                    "alt_units": "0.05km_per_unit",
                 }
                 buf = io.BytesIO()
                 PILImage.fromarray(canvas_ind, "RGBA").save(buf, "PNG", optimize=True)
                 desa_frame(dia_dir_rad, nom_rad,
                            np.zeros((1,1), dtype=np.int16), meta_ind, buf.getvalue(), "echotop")
+                # Desa mapa d'alçades
+                buf_alt = io.BytesIO()
+                PILImage.fromarray(canvas_ind_alt, "L").save(buf_alt, "PNG", optimize=True)
+                dia_dir_rad.mkdir(parents=True, exist_ok=True)
+                (dia_dir_rad / f"{nom_rad}_alt.png").write_bytes(buf_alt.getvalue())
 
         if nom_comp not in carregar_arxivats(dia_dir_comp):
             n_act = int((comp_alt > 0).sum())
@@ -243,11 +252,17 @@ def arxivar_echotop():
                 "bounds": {"lon_min":ESP_LON[0],"lat_min":ESP_LAT[0],
                            "lon_max":ESP_LON[1],"lat_max":ESP_LAT[1]},
                 "shape": [OUT_H, OUT_W], "px_actius": n_act,
+                "alt_units": "0.05km_per_unit",
             }
             buf = io.BytesIO()
             PILImage.fromarray(comp_rgba, "RGBA").save(buf, "PNG", optimize=True)
             desa_frame(dia_dir_comp, nom_comp,
                        np.zeros((1,1), dtype=np.int16), meta_comp, buf.getvalue(), "echotop")
+            # Desa mapa d'alçades com a PNG greyscale (1 unitat = 50m)
+            buf_alt = io.BytesIO()
+            PILImage.fromarray(comp_alt, "L").save(buf_alt, "PNG", optimize=True)
+            dia_dir_comp.mkdir(parents=True, exist_ok=True)
+            (dia_dir_comp / f"{nom_comp}_alt.png").write_bytes(buf_alt.getvalue())
 
 if __name__ == "__main__":
     print(f"Inici: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC")

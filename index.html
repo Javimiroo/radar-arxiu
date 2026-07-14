@@ -56,6 +56,10 @@ select{background:#1e1e1e;border:1px solid #333;color:#ccc;padding:5px 7px;
 #radar-info{position:absolute;bottom:62px;left:10px;z-index:1000;
   background:rgba(10,10,10,.9);border:1px solid #2a2a2a;border-radius:6px;
   padding:7px 10px;font-size:11px;display:none;color:#aaa;max-width:180px}
+/* Tooltip alçada echotop */
+#alt-tooltip{position:fixed;z-index:2000;background:rgba(0,0,0,.82);
+  border:1px solid #2471a3;border-radius:5px;padding:4px 9px;font-size:12px;
+  color:#5dade2;pointer-events:none;display:none;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -89,6 +93,7 @@ select{background:#1e1e1e;border:1px solid #333;color:#ccc;padding:5px 7px;
     <option value="msg_fes:fire">Focs (MSG)</option>
   </select>
   <div class="sep"></div>
+  <button class="btn" id="bAlt" onclick="toggleAlt()" title="Mostra alçada ECHOTOP en passar el cursor" style="display:none">📐 Alçada</button>
   <button class="btn" onclick="toggleLlegenda()">🎨</button>
   <button class="btn" onclick="obrirGIF()">🎬 GIF</button>
   <span id="status">Carregant…</span>
@@ -121,6 +126,7 @@ select{background:#1e1e1e;border:1px solid #333;color:#ccc;padding:5px 7px;
 </div>
 
 <div id="radar-info"></div>
+<div id="alt-tooltip"></div>
 <div id="loading">⏳ Carregant dades…</div>
 
 <!-- Barra inferior -->
@@ -278,6 +284,7 @@ function show(i){
   px(overlay.getElement());
   overlay.on('load',function(){px(this.getElement())});
   document.getElementById('info').textContent=f.ts.replace('T',' ').replace(':00Z',' UTC');
+  if(curProd==='echotop'||curProd==='radar_ind') _carregarAlt(url);
 }
 
 // ── Precàrrega ────────────────────────────────────────────────────────────
@@ -336,6 +343,9 @@ function switchProduct(p,btn){
   ['bComp','bTop','bRad'].forEach(id=>document.getElementById(id).classList.remove('sel'));
   btn.classList.add('sel');
   document.getElementById('selRadar').style.display=p==='radar_ind'?'inline-block':'none';
+  var bAlt=document.getElementById('bAlt');
+  bAlt.style.display=(p==='echotop'||p==='radar_ind')?'inline-block':'none';
+  if(p==='composit'){altLoaded=false;document.getElementById('alt-tooltip').style.display='none';}
   poblarSelectors();
 }
 function canviarRadar(v){
@@ -373,6 +383,51 @@ function _afegirSat(){
 function _treuerSat(){
   if(satLayer){map.removeLayer(satLayer);satLayer=null;}
 }
+
+// ── Alçada ECHOTOP (hover tooltip) ───────────────────────────────────────
+var altEnabled=true, altLoaded=false;
+var _altCanvas=document.createElement('canvas');
+_altCanvas.width=1400; _altCanvas.height=850;
+var _altCtx=_altCanvas.getContext('2d');
+
+function toggleAlt(){
+  altEnabled=!altEnabled;
+  document.getElementById('bAlt').classList.toggle('sel',altEnabled);
+  if(!altEnabled) document.getElementById('alt-tooltip').style.display='none';
+}
+
+function _carregarAlt(url){
+  altLoaded=false;
+  var altUrl=url.replace(/\.png(\?.*)?$/,'_alt.png');
+  var img=new Image(); img.crossOrigin='anonymous';
+  img.onload=function(){
+    _altCtx.clearRect(0,0,1400,850);
+    _altCtx.drawImage(img,0,0,1400,850);
+    altLoaded=true;
+  };
+  img.onerror=function(){ altLoaded=false; };
+  img.src=altUrl;
+}
+
+map.on('mousemove',function(e){
+  var tt=document.getElementById('alt-tooltip');
+  if(!altEnabled||!altLoaded){tt.style.display='none';return;}
+  var lat=e.latlng.lat, lon=e.latlng.lng;
+  var px=Math.round((lon+9.5)/14.0*1400);
+  var py=Math.round((44.0-lat)/8.5*850);
+  if(px<0||px>=1400||py<0||py>=850){tt.style.display='none';return;}
+  var d=_altCtx.getImageData(px,py,1,1).data;
+  if(d[0]===0){tt.style.display='none';return;}
+  var km=(d[0]*0.05).toFixed(1);
+  tt.style.display='block';
+  tt.style.left=(e.originalEvent.clientX+14)+'px';
+  tt.style.top =(e.originalEvent.clientY-10)+'px';
+  tt.textContent='~'+km+' km';
+});
+
+map.on('mouseout',function(){
+  document.getElementById('alt-tooltip').style.display='none';
+});
 
 // ── Llegenda ──────────────────────────────────────────────────────────────
 function toggleLlegenda(){
