@@ -134,8 +134,6 @@ def arxivar_composit():
     tf = tarfile.open(fileobj=io.BytesIO(raw))
     membres = sorted(tf.getmembers(), key=lambda m: m.name)
 
-    print(f"  Membres TAR: {[m.name for m in membres[:3]]}")  # debug noms
-
     for membre in membres:
         ts = ts_de_nom_compo(membre.name)
         if not ts: continue
