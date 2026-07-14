@@ -89,9 +89,11 @@ def echotop_a_rgba(comp_rgba, size=(OUT_W, OUT_H)):
     return buf.getvalue()
 
 def ts_de_nom_compo(nom):
+    # Format AEMET: ./compo_YYYYMMDDHHMM.tif (12 dígits, sense segons)
     parts = nom.replace("./", "").replace(".tif","").split("_")
     for p in parts:
-        if len(p) == 14 and p.isdigit(): return p
+        if p.isdigit() and len(p) in (12, 14):
+            return p + "00" if len(p) == 12 else p  # normalitza a 14 dígits
     return None
 
 def ts_de_nom_top(nom):
