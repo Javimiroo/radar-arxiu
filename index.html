@@ -210,9 +210,10 @@ function poblarSelectors(){
     dates.map(d=>`<option value="${d}">${d}</option>`).join('');
 
   var rads=Object.keys(manifest.radars_individuals||{}).sort();
-  document.getElementById('selRadar').innerHTML=
-    '<option value="">— Tots —</option>'+
+  var selR=document.getElementById('selRadar');
+  selR.innerHTML='<option value="">— Tots —</option>'+
     rads.map(r=>`<option value="${r}">${r} — ${NOMS_RADAR[r]||r}</option>`).join('');
+  if(curRadar) selR.value=curRadar;
 
   if(dates.length) carregarDia(dates[0]);
 }
