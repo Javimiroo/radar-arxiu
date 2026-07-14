@@ -1,0 +1,46 @@
+name: Arxivar Radar AEMET
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'   # cada 10 minuts
+  workflow_dispatch:           # permet execució manual
+
+permissions:
+  contents: write
+
+jobs:
+  arxivar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Instal·lar dependències
+        run: pip install requests rasterio numpy Pillow
+
+      - name: Descarregar i arxivar radar
+        run: python scripts/descarregar.py
+
+      - name: Neteja de dades antigues (>30 dies)
+        run: python scripts/netejar.py
+
+      - name: Actualitzar manifest
+        run: python scripts/manifest.py
+
+      - name: Commit i push
+        run: |
+          git config user.name  "radar-bot"
+          git config user.email "radar-bot@noreply.github.com"
+          git add data/ manifest.json
+          git diff --staged --quiet && echo "Sense canvis." || \
+            git commit -m "📡 $(date -u '+%Y-%m-%d %H:%M') UTC" && git push

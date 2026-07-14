@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radar AEMET — Arxiu GRAF</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',sans-serif;display:flex;flex-direction:column;
+  height:100vh;background:#0d0d0d;color:#eee}
+#map{flex:1}
+.leaflet-image-layer{image-rendering:pixelated;image-rendering:crisp-edges}
+#top-bar{display:flex;align-items:center;gap:10px;padding:6px 12px;
+  background:#111;border-bottom:1px solid #222;flex-wrap:wrap}
+#bot-bar{display:flex;align-items:center;gap:10px;padding:7px 12px;
+  background:#111;border-top:1px solid #222;flex-wrap:wrap;min-height:54px}
+.btn{background:#1e1e1e;border:1px solid #333;color:#ccc;padding:5px 11px;
+  cursor:pointer;border-radius:5px;font-size:12px;transition:background .15s}
+.btn:hover{background:#1a6fb5}.btn.on{background:#c0392b;border-color:#c0392b}
+.btn.sel{background:#2471a3;border-color:#2471a3;color:#fff}
+.seg{display:flex;gap:0}
+.seg .btn{border-radius:0;border-right:none}
+.seg .btn:first-child{border-radius:5px 0 0 5px}
+.seg .btn:last-child{border-radius:0 5px 5px 0;border-right:1px solid #333}
+select{background:#1e1e1e;border:1px solid #333;color:#ccc;padding:5px 8px;
+  border-radius:5px;font-size:12px;cursor:pointer}
+#tl{flex:1;min-width:80px;accent-color:#2980b9}
+#info{font-size:12px;color:#5dade2;font-weight:bold;min-width:200px}
+#status{font-size:11px;color:#666;padding:3px 8px;background:#181818;
+  border-radius:4px;border:1px solid #222}
+.cg{display:flex;flex-direction:column;gap:2px}
+.cg label{font-size:10px;color:#555}
+.cg input[type=range]{width:80px;accent-color:#2980b9}
+.sep{width:1px;height:28px;background:#222;margin:0 3px}
+#llegenda{position:absolute;bottom:60px;right:10px;z-index:1000;
+  background:rgba(10,10,10,.92);border:1px solid #2a2a2a;border-radius:8px;
+  padding:10px;font-size:11px;display:none}
+#llegenda h4{color:#888;margin-bottom:6px;font-size:10px;text-transform:uppercase}
+.lrow{display:flex;align-items:center;gap:7px;padding:2px 0}
+.lsw{width:16px;height:10px;border-radius:2px;flex-shrink:0}
+#loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:rgba(0,0,0,.8);padding:20px 30px;border-radius:10px;
+  border:1px solid #333;text-align:center;z-index:2000;font-size:14px}
+#loading.hidden{display:none}
+</style>
+</head>
+<body>
+
+<!-- Barra superior: selectors de dades -->
+<div id="top-bar">
+  <span style="color:#5dade2;font-weight:bold;font-size:13px">📡 Radar AEMET</span>
+  <div class="sep"></div>
+  <div class="seg">
+    <button class="btn sel" id="bComp" onclick="switchProduct('composit',this)">🌧 Composit ESP</button>
+    <button class="btn" id="bTop"  onclick="switchProduct('echotop',this)">📡 ECHOTOP</button>
+    <button class="btn" id="bRad"  onclick="switchProduct('radar_ind',this)">🔭 Radar individual</button>
+  </div>
+  <select id="selRadar" style="display:none" onchange="canviarRadar(this.value)">
+    <option value="">— Selecciona radar —</option>
+  </select>
+  <div class="sep"></div>
+  <label style="font-size:11px;color:#666">Data:</label>
+  <select id="selData" onchange="carregarDia(this.value)">
+    <option>Carregant...</option>
+  </select>
+  <div class="sep"></div>
+  <div class="seg">
+    <button class="btn sel" onclick="switchBase('topo',this)">Topo</button>
+    <button class="btn" onclick="switchBase('dark',this)">Fosc</button>
+    <button class="btn" onclick="switchBase('sat',this)">Sat</button>
+  </div>
+  <div class="sep"></div>
+  <button class="btn" onclick="toggleLlegenda()">🎨 Llegenda</button>
+  <span id="status">Carregant manifest...</span>
+</div>
+
+<div id="map"></div>
+
+<!-- Llegenda -->
+<div id="llegenda">
+  <h4>Reflectivitat</h4>
+  <div class="lrow"><div class="lsw" style="background:#9cfcff"></div>Molt feble</div>
+  <div class="lrow"><div class="lsw" style="background:#03d3ff"></div>Feble</div>
+  <div class="lrow"><div class="lsw" style="background:#5aff5a"></div>Moderat</div>
+  <div class="lrow"><div class="lsw" style="background:#00c800"></div>Moderat-fort</div>
+  <div class="lrow"><div class="lsw" style="background:#ffff00"></div>Fort</div>
+  <div class="lrow"><div class="lsw" style="background:#ff9600"></div>Molt fort</div>
+  <div class="lrow"><div class="lsw" style="background:#ff0000"></div>Intens</div>
+  <div class="lrow"><div class="lsw" style="background:#c80000"></div>Extrem</div>
+  <h4 style="margin-top:10px">ECHOTOP</h4>
+  <div class="lrow"><div class="lsw" style="background:#0000fc"></div>1–2 km</div>
+  <div class="lrow"><div class="lsw" style="background:#0082ff"></div>2–4 km</div>
+  <div class="lrow"><div class="lsw" style="background:#00ffff"></div>4–5 km</div>
+  <div class="lrow"><div class="lsw" style="background:#00fa00"></div>6–8 km</div>
+  <div class="lrow"><div class="lsw" style="background:#ffff00"></div>8–10 km</div>
+  <div class="lrow"><div class="lsw" style="background:#ffa600"></div>10–12 km</div>
+  <div class="lrow"><div class="lsw" style="background:#ff0000"></div>14–16 km</div>
+  <div class="lrow"><div class="lsw" style="background:#c80050"></div>16–20 km</div>
+  <div class="lrow"><div class="lsw" style="background:#820a6e"></div>&gt; 20 km</div>
+</div>
+
+<!-- Loading -->
+<div id="loading">⏳ Carregant dades...</div>
+
+<!-- Barra inferior: controls d'animació -->
+<div id="bot-bar">
+  <button class="btn" id="bFirst" onclick="show(0)">⏮</button>
+  <button class="btn" id="bPrev"  onclick="show(cur-1)">◀</button>
+  <button class="btn" id="bPlay"  onclick="togglePlay()">▶ Play</button>
+  <button class="btn" id="bNext"  onclick="show(cur+1)">▶</button>
+  <button class="btn" id="bLast"  onclick="show(frames.length-1)">⏭</button>
+  <input type="range" id="tl" min="0" max="0" value="0"
+         oninput="show(parseInt(this.value))">
+  <div id="info">—</div>
+  <div class="sep"></div>
+  <div class="cg">
+    <label>Velocitat: <b id="fpsV">5</b> fps</label>
+    <input type="range" id="fps" min="1" max="15" value="5"
+           oninput="document.getElementById('fpsV').textContent=this.value;if(playing)restart()">
+  </div>
+  <div class="sep"></div>
+  <span style="font-size:11px;color:#444">
+    ← → espai
+  </span>
+</div>
+
+<script>
+// ── Mapa ─────────────────────────────────────────────────────────────────────
+var BOUNDS = [[35.5,-9.5],[44.0,4.5]];
+var topo = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19});
+var dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19});
+var sat  = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19});
+var bases = {topo,dark,sat};
+var curBase = topo;
+var map = L.map('map',{layers:[topo]}).setView([39.8,-2.5],6);
+function px(el){if(el){el.style.imageRendering='pixelated';el.style.imageRendering='crisp-edges'}}
+function switchBase(n,btn){
+  map.removeLayer(curBase);curBase=bases[n];map.addLayer(curBase);
+  document.querySelectorAll('#top-bar .seg:last-of-type .btn').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  if(overlay)overlay.addTo(map);
+}
+
+// ── Estat ────────────────────────────────────────────────────────────────────
+var manifest = null;
+var frames = [];
+var cur = 0, playing = false, timer = null;
+var overlay = null;
+var curProd = 'composit';
+var curRadar = '';
+var REPO_BASE = './';   // GitHub Pages serveix des de l'arrel del repo
+
+function setStatus(msg){document.getElementById('status').textContent=msg}
+function setLoading(v){document.getElementById('loading').classList.toggle('hidden',!v)}
+
+// ── Carregar manifest ─────────────────────────────────────────────────────────
+async function carregarManifest(){
+  setLoading(true);
+  try{
+    var r = await fetch(REPO_BASE+'manifest.json?_='+Date.now());
+    manifest = await r.json();
+    setStatus('Manifest carregat: '+manifest.actualitzat.slice(0,16)+' UTC');
+    poblarSelectors();
+  }catch(e){
+    setStatus('ERROR: '+e.message);
+  }
+  setLoading(false);
+}
+
+function poblarSelectors(){
+  // Dates disponibles del producte actual
+  var dades = dadesActuals();
+  var dates = [...new Set(Object.keys(dades).map(ts=>ts.slice(0,10)))].sort().reverse();
+  var sel = document.getElementById('selData');
+  sel.innerHTML = dates.map(d=>`<option value="${d}">${d}</option>`).join('');
+
+  // Radars individuals
+  var selR = document.getElementById('selRadar');
+  var rads = Object.keys(manifest.radars_individuals||{}).sort();
+  selR.innerHTML = '<option value="">— Tots —</option>' +
+    rads.map(r=>`<option value="${r}">${r}</option>`).join('');
+
+  if(dates.length) carregarDia(dates[0]);
+}
+
+function dadesActuals(){
+  if(!manifest) return {};
+  if(curProd==='composit') return manifest.composit||{};
+  if(curProd==='echotop')  return manifest.echotop_composit||{};
+  if(curProd==='radar_ind' && curRadar) return manifest.radars_individuals[curRadar]||{};
+  return {};
+}
+
+function carregarDia(data){
+  var dades = dadesActuals();
+  var filtrats = Object.entries(dades)
+    .filter(([ts])=>ts.startsWith(data))
+    .sort(([a],[b])=>a.localeCompare(b));
+
+  frames = filtrats.map(([ts,path])=>({ts,url:REPO_BASE+path}));
+  var tl = document.getElementById('tl');
+  tl.max = Math.max(0, frames.length-1);
+  if(playing) stop();
+  show(frames.length-1);
+}
+
+// ── Mostrar frame ─────────────────────────────────────────────────────────────
+function show(i){
+  if(!frames.length) return;
+  i = ((i%frames.length)+frames.length)%frames.length;
+  cur = i;
+  document.getElementById('tl').value = i;
+  if(overlay) map.removeLayer(overlay);
+  var f = frames[i];
+  overlay = L.imageOverlay(f.url+'?_=1', BOUNDS, {opacity:0.85}).addTo(map);
+  px(overlay.getElement());
+  overlay.on('load',function(){px(this.getElement())});
+  document.getElementById('info').textContent = f.ts.replace('T',' ').replace(':00Z',' UTC');
+}
+
+// ── Animació ─────────────────────────────────────────────────────────────────
+function getFps(){return parseInt(document.getElementById('fps').value)}
+function restart(){if(timer)clearInterval(timer);timer=setInterval(()=>show(cur+1),1000/getFps())}
+function stop(){playing=false;if(timer){clearInterval(timer);timer=null}
+  document.getElementById('bPlay').textContent='▶ Play';
+  document.getElementById('bPlay').classList.remove('on')}
+function togglePlay(){
+  playing=!playing;
+  var b=document.getElementById('bPlay');
+  b.textContent=playing?'⏸ Pausa':'▶ Play'; b.classList.toggle('on',playing);
+  if(playing)restart(); else stop();
+}
+
+// ── Canvi de producte / radar ─────────────────────────────────────────────────
+function switchProduct(p,btn){
+  if(playing) stop();
+  curProd=p;
+  document.querySelectorAll('#bComp,#bTop,#bRad').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  document.getElementById('selRadar').style.display = p==='radar_ind'?'inline-block':'none';
+  poblarSelectors();
+}
+function canviarRadar(v){
+  curRadar=v; poblarSelectors();
+}
+
+// ── Llegenda ──────────────────────────────────────────────────────────────────
+function toggleLlegenda(){
+  var l=document.getElementById('llegenda');
+  l.style.display=l.style.display==='none'?'block':'none';
+}
+
+// ── Teclat ────────────────────────────────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  if(e.code==='Space'){e.preventDefault();togglePlay()}
+  if(e.code==='ArrowRight') show(cur+1);
+  if(e.code==='ArrowLeft')  show(cur-1);
+  if(e.code==='Home') show(0);
+  if(e.code==='End')  show(frames.length-1);
+});
+
+// ── Inici ─────────────────────────────────────────────────────────────────────
+carregarManifest();
+</script>
+</body>
+</html>
