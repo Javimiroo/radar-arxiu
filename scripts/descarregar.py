@@ -89,11 +89,12 @@ def echotop_a_rgba(comp_rgba, size=(OUT_W, OUT_H)):
     return buf.getvalue()
 
 def ts_de_nom_compo(nom):
-    # Format AEMET: ./compo_YYYYMMDDHHMM.tif (12 dígits, sense segons)
-    parts = nom.replace("./", "").replace(".tif","").split("_")
-    for p in parts:
-        if p.isdigit() and len(p) in (12, 14):
-            return p + "00" if len(p) == 12 else p  # normalitza a 14 dígits
+    # Usa regex per trobar qualsevol seqüència de 12-14 dígits al nom
+    import re
+    m = re.search(r'(\d{12,14})', nom)
+    if m:
+        ts = m.group(1)
+        return ts + "00" if len(ts) == 12 else ts
     return None
 
 def ts_de_nom_top(nom):
@@ -132,6 +133,8 @@ def arxivar_composit():
 
     tf = tarfile.open(fileobj=io.BytesIO(raw))
     membres = sorted(tf.getmembers(), key=lambda m: m.name)
+
+    print(f"  Membres TAR: {[m.name for m in membres[:3]]}")  # debug noms
 
     for membre in membres:
         ts = ts_de_nom_compo(membre.name)
