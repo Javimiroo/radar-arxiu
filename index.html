@@ -354,6 +354,7 @@ carregarManifest();
 
 // ── GIF Export ──────────────────────────────────────────────────────────────
 var _gifWorkerUrl=null;
+
 async function _getGifWorker(){
   if(_gifWorkerUrl) return _gifWorkerUrl;
   var r=await fetch('https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js');
@@ -361,6 +362,69 @@ async function _getGifWorker(){
   _gifWorkerUrl=URL.createObjectURL(new Blob([code],{type:'application/javascript'}));
   return _gifWorkerUrl;
 }
+
+// Dibuixa les tiles CartoDB com a fons (CORS obert)
+async function _dibuixarFons(ctx,W,H){
+  var z=map.getZoom();
+  var pb=map.getPixelBounds();
+  var pixW=pb.max.x-pb.min.x, pixH=pb.max.y-pb.min.y;
+  var scX=W/pixW, scY=H/pixH;
+  var tx0=Math.floor(pb.min.x/256), tx1=Math.floor((pb.max.x-1)/256);
+  var ty0=Math.floor(pb.min.y/256), ty1=Math.floor((pb.max.y-1)/256);
+  var loads=[];
+  for(var tx=tx0;tx<=tx1;tx++) for(var ty=ty0;ty<=ty1;ty++){
+    (function(_tx,_ty){
+      loads.push(new Promise(function(res){
+        var img=new Image(); img.crossOrigin='anonymous';
+        img.onload=function(){
+          ctx.drawImage(img,(_tx*256-pb.min.x)*scX,(_ty*256-pb.min.y)*scY,256*scX,256*scY);
+          res();
+        };
+        img.onerror=res;
+        var s=['a','b','c','d'][(Math.abs(_tx)+Math.abs(_ty))%4];
+        img.src='https://'+s+'.basemaps.cartocdn.com/dark_all/'+z+'/'+_tx+'/'+_ty+'.png';
+      }));
+    })(tx,ty);
+  }
+  await Promise.all(loads);
+}
+
+// Dibuixa el radar en coordenades Mercator (igual que Leaflet)
+// + filtre de soroll: elimina píxels amb < 2 veïns
+function _dibuixarRadar(ctx,img,W,H){
+  var z=map.getZoom();
+  var pb=map.getPixelBounds();
+  var pixW=pb.max.x-pb.min.x, pixH=pb.max.y-pb.min.y;
+  var scX=W/pixW, scY=H/pixH;
+  var sw=map.project(L.latLng(35.5,-9.5),z);
+  var ne=map.project(L.latLng(44.0, 4.5),z);
+  var rx=(sw.x-pb.min.x)*scX, ry=(ne.y-pb.min.y)*scY;
+  var rw=(ne.x-sw.x)*scX,   rh=(sw.y-ne.y)*scY;
+
+  // Primer canvas temporal per al filtre
+  var tmp=document.createElement('canvas'); tmp.width=W; tmp.height=H;
+  var tctx=tmp.getContext('2d');
+  tctx.drawImage(img,rx,ry,rw,rh);
+
+  // Filtre de soroll: queden píxels amb ≥ 2 veïns (8-connectivitat)
+  var id=tctx.getImageData(0,0,W,H); var d=id.data;
+  var has=new Uint8Array(W*H);
+  for(var i=0;i<W*H;i++) if(d[i*4+3]>0) has[i]=1;
+  for(var y=0;y<H;y++) for(var x=0;x<W;x++){
+    var idx=y*W+x;
+    if(!has[idx]) continue;
+    var n=0;
+    for(var dy=-1;dy<=1;dy++) for(var dx=-1;dx<=1;dx++){
+      if(!dx&&!dy) continue;
+      var nx=x+dx,ny=y+dy;
+      if(nx>=0&&nx<W&&ny>=0&&ny<H&&has[ny*W+nx]) n++;
+    }
+    if(n<2) d[idx*4+3]=0;
+  }
+  tctx.putImageData(id,0,0);
+  ctx.drawImage(tmp,0,0);
+}
+
 function obrirGIF(){
   if(!frames.length){alert('No hi ha frames carregats.');return;}
   var fmt=ts=>ts.replace('T',' ').replace(':00Z',' UTC');
@@ -374,53 +438,55 @@ function obrirGIF(){
   document.getElementById('gif-backdrop').style.display='block';
   document.getElementById('gif-panel').style.display='block';
 }
+
 function tancarGIF(){
   document.getElementById('gif-backdrop').style.display='none';
   document.getElementById('gif-panel').style.display='none';
 }
+
 async function generarGIF(){
   var tsInici=document.getElementById('gifInici').value;
   var tsFinal=document.getElementById('gifFinal').value;
   var delay=parseInt(document.getElementById('gifDelay').value)||200;
   var fSel=frames.filter(f=>f.ts>=tsInici&&f.ts<=tsFinal);
   if(!fSel.length){alert('Cap frame en el rang.');return;}
+
   document.getElementById('gif-progress').style.display='block';
   document.getElementById('gif-result').style.display='none';
   document.getElementById('btnGenGIF').disabled=true;
   var setS=s=>document.getElementById('gif-status').textContent=s;
   var setB=p=>document.getElementById('gif-bar').style.width=p+'%';
-  // Viewport bounds clamped al radar
-  var mb=map.getBounds();
-  var lon0=Math.max(-9.5,mb.getWest()),lon1=Math.min(4.5,mb.getEast());
-  var lat0=Math.min(44.0,mb.getNorth()),lat1=Math.max(35.5,mb.getSouth());
-  if(lon1<=lon0||lat0<=lat1){alert('Vista fora del rang del radar.');document.getElementById('btnGenGIF').disabled=false;return;}
-  // Retall del PNG font (100 px/grau, 1400×850)
-  var pxd=100;
-  var sx=Math.round((lon0-(-9.5))*pxd), sy=Math.round((44.0-lat0)*pxd);
-  var sw=Math.min(Math.round((lon1-lon0)*pxd),1400-sx);
-  var sh=Math.min(Math.round((lat0-lat1)*pxd),850-sy);
-  // Canvas de sortida (màx 800px d'amplada)
-  var scale=Math.min(1,800/sw);
-  var W=Math.round(sw*scale),H=Math.round(sh*scale);
-  var canvas=document.createElement('canvas');
-  canvas.width=W; canvas.height=H;
+
+  // Canvas mida viewport (màx 800px)
+  var ms=map.getSize();
+  var sc=Math.min(1,800/ms.x);
+  var W=Math.round(ms.x*sc), H=Math.round(ms.y*sc);
+  var canvas=document.createElement('canvas'); canvas.width=W; canvas.height=H;
   var ctx=canvas.getContext('2d');
+
   // Worker GIF
   var workerUrl;
   try{workerUrl=await _getGifWorker();}
-  catch(e){alert('Error carregant encoder GIF: '+e);document.getElementById('btnGenGIF').disabled=false;return;}
+  catch(e){alert('Error carregant encoder GIF.');document.getElementById('btnGenGIF').disabled=false;return;}
   var gif=new GIF({workers:1,quality:10,width:W,height:H,workerScript:workerUrl});
-  // Càrrega i afegit de frames
+
+  // Fons (tiles) — es dibuixa una vegada
+  setS('Carregant fons…');
+  var bgCanvas=document.createElement('canvas'); bgCanvas.width=W; bgCanvas.height=H;
+  var bgCtx=bgCanvas.getContext('2d');
+  bgCtx.fillStyle='#0d1117'; bgCtx.fillRect(0,0,W,H);
+  try{await _dibuixarFons(bgCtx,W,H);}catch(e){console.warn('Tiles fons:',e);}
+
+  // Frames
   setS('Carregant frames (0/'+fSel.length+')…');
   var done=0;
   for(var i=0;i<fSel.length;i++){
     var f=fSel[i];
     await new Promise(function(resolve){
-      var img=new Image();
-      img.crossOrigin='anonymous';
+      var img=new Image(); img.crossOrigin='anonymous';
       img.onload=function(){
-        ctx.fillStyle='#0d1117'; ctx.fillRect(0,0,W,H);
-        ctx.drawImage(img,sx,sy,sw,sh,0,0,W,H);
+        ctx.drawImage(bgCanvas,0,0);
+        _dibuixarRadar(ctx,img,W,H);
         gif.addFrame(canvas,{delay:delay,copy:true});
         done++; setB(done/fSel.length*70);
         setS('Carregant frames ('+done+'/'+fSel.length+')…');
@@ -430,6 +496,7 @@ async function generarGIF(){
       img.src=f.url+'?_=1';
     });
   }
+
   setS('Codificant GIF…');
   gif.on('progress',function(p){setB(70+p*30);});
   gif.on('finished',function(blob){
