@@ -38,10 +38,19 @@ HEADERS = {
 }
 
 RADAR_RGBA = {
-    1: (156, 252, 255, 170), 2: (3,  211, 255, 180),
-    3: (90,  255,  90, 190), 4: (0,  200,   0, 200),
-    5: (255, 255,   0, 215), 6: (255, 150,   0, 225),
-    7: (255,   0,   0, 235), 8: (200,   0,   0, 245),
+    # Colors exactes del colormap AEMET (ds.colormap(1) del GeoTIFF composit)
+    1:  (239, 242, 249,  80),  #  5-15 dBZ — quasi blanc (molt feble)
+    2:  (  0,   0, 252, 155),  # 15-20 dBZ — blau
+    3:  (  0, 148, 252, 170),  # 20-25 dBZ — blau clar
+    4:  (  0, 252, 252, 182),  # 25-30 dBZ — cian
+    5:  ( 67, 131,  35, 193),  # 30-35 dBZ — verd fosc
+    6:  (  0, 192,   0, 203),  # 35-40 dBZ — verd
+    7:  (  0, 255,   0, 213),  # 40-45 dBZ — verd brillant
+    8:  (255, 255,   0, 220),  # 45-50 dBZ — groc
+    9:  (255, 187,   0, 228),  # 50-55 dBZ — ambre
+    10: (255, 127,   0, 236),  # 55-60 dBZ — taronja
+    11: (255,   0,   0, 244),  # 60-65 dBZ — roig
+    12: (200,   0,  90, 255),  # >65 dBZ   — magenta fosc
 }
 
 # Helpers generals
@@ -66,7 +75,7 @@ def array_a_png(arr, colormap, size=(OUT_W, OUT_H)):
     rgba = np.zeros((*arr.shape, 4), dtype=np.uint8)
     for val, color in colormap.items():
         rgba[arr == val] = color
-    img = PILImage.fromarray(rgba, "RGBA").resize(size, PILImage.NEAREST)
+    img = PILImage.fromarray(rgba, "RGBA").resize(size, PILImage.BILINEAR)
     buf = io.BytesIO(); img.save(buf, "PNG", optimize=True)
     return buf.getvalue()
 

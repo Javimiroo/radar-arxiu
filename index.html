@@ -12,7 +12,7 @@
 body{font-family:'Segoe UI',sans-serif;display:flex;flex-direction:column;
   height:100vh;background:#0d0d0d;color:#eee}
 #map{flex:1}
-.leaflet-image-layer{image-rendering:pixelated;image-rendering:crisp-edges}
+.leaflet-image-layer{image-rendering:auto}
 #top-bar{display:flex;align-items:center;gap:8px;padding:5px 10px;
   background:#111;border-bottom:1px solid #222;flex-wrap:wrap}
 #bot-bar{display:flex;align-items:center;gap:8px;padding:6px 10px;
@@ -105,14 +105,18 @@ select{background:#1e1e1e;border:1px solid #333;color:#ccc;padding:5px 7px;
 <!-- Llegenda -->
 <div id="llegenda">
   <h4>Reflectivitat</h4>
-  <div class="lrow"><div class="lsw" style="background:#9cfcff"></div>Molt feble</div>
-  <div class="lrow"><div class="lsw" style="background:#03d3ff"></div>Feble</div>
-  <div class="lrow"><div class="lsw" style="background:#5aff5a"></div>Moderat</div>
-  <div class="lrow"><div class="lsw" style="background:#00c800"></div>Moderat-fort</div>
-  <div class="lrow"><div class="lsw" style="background:#ffff00"></div>Fort</div>
-  <div class="lrow"><div class="lsw" style="background:#ff9600"></div>Molt fort</div>
-  <div class="lrow"><div class="lsw" style="background:#ff0000"></div>Intens</div>
-  <div class="lrow"><div class="lsw" style="background:#c80000"></div>Extrem</div>
+  <div class="lrow"><div class="lsw" style="background:#eff2f9"></div> 5–15 dBZ</div>
+  <div class="lrow"><div class="lsw" style="background:#0000fc"></div>15–20 dBZ</div>
+  <div class="lrow"><div class="lsw" style="background:#0094fc"></div>20–25 dBZ</div>
+  <div class="lrow"><div class="lsw" style="background:#00fcfc"></div>25–30 dBZ</div>
+  <div class="lrow"><div class="lsw" style="background:#438323"></div>30–35 dBZ</div>
+  <div class="lrow"><div class="lsw" style="background:#00c000"></div>35–40 dBZ</div>
+  <div class="lrow"><div class="lsw" style="background:#00ff00"></div>40–45 dBZ</div>
+  <div class="lrow"><div class="lsw" style="background:#ffff00"></div>45–50 dBZ</div>
+  <div class="lrow"><div class="lsw" style="background:#ffbb00"></div>50–55 dBZ</div>
+  <div class="lrow"><div class="lsw" style="background:#ff7f00"></div>55–60 dBZ</div>
+  <div class="lrow"><div class="lsw" style="background:#ff0000"></div>60–65 dBZ</div>
+  <div class="lrow"><div class="lsw" style="background:#c8005a"></div>&gt;65 dBZ</div>
   <h4 style="margin-top:8px">ECHOTOP</h4>
   <div class="lrow"><div class="lsw" style="background:#0000fc"></div>1–2 km</div>
   <div class="lrow"><div class="lsw" style="background:#0082ff"></div>2–4 km</div>
