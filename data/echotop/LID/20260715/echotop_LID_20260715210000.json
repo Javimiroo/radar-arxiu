@@ -1,0 +1,17 @@
+{
+  "timestamp_utc": "2026-07-15T21:00:00Z",
+  "tipus": "echotop_LID",
+  "radar": "LID",
+  "bounds": {
+    "lon_min": -9.5,
+    "lat_min": 35.5,
+    "lon_max": 4.5,
+    "lat_max": 44.0
+  },
+  "shape": [
+    850,
+    1400
+  ],
+  "px_actius": 2041,
+  "alt_units": "0.05km_per_unit"
+}
