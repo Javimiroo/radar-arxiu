@@ -1053,8 +1053,8 @@ async function executarCalcul(){
 
   // ── 6. GIF de l'àrea ──
   setS('Generant GIF…'); setB(55);
-  var k=Math.max(2,Math.min(8,Math.round(440/rw)));
-  var GW=rw*k, GH=rh*k+22;
+  var k=Math.max(4,Math.min(24,Math.ceil(900/rw)));
+  var GW=rw*k, GH=rh*k+26;
   var gc=document.createElement('canvas'); gc.width=GW; gc.height=GH;
   var gx=gc.getContext('2d'); gx.imageSmoothingEnabled=false;
   var gifBlob=null;
@@ -1065,11 +1065,11 @@ async function executarCalcul(){
     for(var i=0;i<res.length;i++){
       var r=res[i];
       gx.fillStyle='#0d1117'; gx.fillRect(0,0,GW,GH);
-      if(r.colImg) gx.drawImage(r.colImg,x0,y0,rw,rh,0,22,GW,GH-22);
-      gx.fillStyle='rgba(0,0,0,.8)'; gx.fillRect(0,0,GW,22);
-      gx.fillStyle='#fff'; gx.font='bold 12px monospace'; gx.textAlign='left';
+      if(r.colImg) gx.drawImage(r.colImg,x0,y0,rw,rh,0,26,GW,GH-26);
+      gx.fillStyle='rgba(0,0,0,.8)'; gx.fillRect(0,0,GW,26);
+      gx.fillStyle='#fff'; gx.font='bold 15px monospace'; gx.textAlign='left';
       gx.fillText(nomRaw+' · '+r.ts.slice(0,16).replace('T',' ')+' UTC'
-        +(r.max?' · màx '+ALT_LABELS[r.max]:''),6,15);
+        +(r.max?' · màx '+ALT_LABELS[r.max]:''),8,18);
       gif.addFrame(gc,{delay:300,copy:true});
       var blob=await new Promise(function(rs){gc.toBlob(rs,'image/png')});
       framesPNG.push({nom:nom+'_'+r.ts.slice(0,10).replace(/-/g,'')+'_'+r.ts.slice(11,16).replace(':','')+'.png',blob:blob});
