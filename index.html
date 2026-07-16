@@ -930,7 +930,6 @@ function drawCompass(sel){
   var maxKm=0.2;
   calcCompArrows.forEach(function(a){if(a.km>maxKm)maxKm=a.km});
   var rs=R/maxKm;
-  // Anells d'escala
   var passos=[0.1,0.2,0.5,1,2,5,10,20,50,100];
   var pas=passos.find(function(p){return maxKm/p<=4})||100;
   g.strokeStyle='#1e1e1e'; g.fillStyle='#555'; g.font='9px sans-serif'; g.textAlign='left';
@@ -939,14 +938,12 @@ function drawCompass(sel){
     g.fillText((k<1?k.toFixed(1):Math.round(k))+' km',cx+3,cy-k*rs-3);
   }
   g.beginPath();g.arc(cx,cy,R,0,7);g.strokeStyle='#2e2e2e';g.stroke();
-  // Creu cardinal
   g.strokeStyle='#242424';
   g.beginPath();g.moveTo(cx-R,cy);g.lineTo(cx+R,cy);g.moveTo(cx,cy-R);g.lineTo(cx,cy+R);g.stroke();
   g.fillStyle='#888'; g.font='bold 13px sans-serif'; g.textAlign='center';
   g.fillText('N',cx,cy-R-10); g.fillText('S',cx,cy+R+20);
   g.textAlign='left'; g.fillText('E',cx+R+7,cy+5);
   g.textAlign='right'; g.fillText('O',cx-R-7,cy+5);
-  // Fletxes (color segons hora: blau inici -> roig final)
   calcCompArrows.forEach(function(a,i){
     if(a.km<=0)return;
     var ex=cx+Math.sin(a.rumb*Math.PI/180)*a.km*rs;
@@ -969,9 +966,7 @@ function drawCompass(sel){
     }
   });
   g.globalAlpha=1;
-  // Punt central (origen)
   g.fillStyle='#fff';g.beginPath();g.arc(cx,cy,3,0,7);g.fill();
-  // Info lateral
   var info=document.getElementById('calcCompInfo');
   if(sel>=0&&calcCompArrows[sel]){
     var a=calcCompArrows[sel];
@@ -1127,21 +1122,67 @@ async function executarCalcul(){
   slC.value=slC.max;
   drawCompass(-1); // totes sòlides (aquesta versió va al ZIP)
 
-  // ── 6. GIF de l'àrea ──
-  setS('Generant GIF…'); setB(55);
+  // ── 6. GIF de l'àrea (amb fons cartogràfic Mercator) ──
+  setS('Generant GIF…'); setB(50);
   var k=Math.max(4,Math.min(24,Math.ceil(900/rw)));
-  var GW=rw*k, GH=rh*k+26;
+  var GW=rw*k;
+  var latN=44.0-y0/100, latS=44.0-y1/100, lonW=-9.5+x0/100, lonE=-9.5+x1/100;
+  var yTopW=(_MY_N-_mercY(latN))/(_MY_N-_MY_S)*850;
+  var yBotW=(_MY_N-_mercY(latS))/(_MY_N-_MY_S)*850;
+  var GHm=Math.round((yBotW-yTopW)*k), GH=GHm+26;
   var gc=document.createElement('canvas'); gc.width=GW; gc.height=GH;
-  var gx=gc.getContext('2d'); gx.imageSmoothingEnabled=false;
+  var gx=gc.getContext('2d');
   var gifBlob=null;
+
+  // Fons cartogràfic (context espacial) — es carrega una sola vegada
+  var bgC=document.createElement('canvas'); bgC.width=GW; bgC.height=GHm;
+  var bx=bgC.getContext('2d');
+  bx.fillStyle='#0d1117'; bx.fillRect(0,0,GW,GHm);
+  try{
+    setS('Carregant fons cartogràfic…');
+    var z=Math.min(12,Math.max(6,Math.ceil(Math.log2(GW*360/((lonE-lonW)*256)))));
+    var scW=256*Math.pow(2,z);
+    var mpx=function(lon){return (lon+180)/360*scW};
+    var mpy=function(lat){var s=Math.sin(lat*Math.PI/180);
+      return (0.5-Math.log((1+s)/(1-s))/(4*Math.PI))*scW};
+    var px0m=mpx(lonW), px1m=mpx(lonE), py0m=mpy(latN), py1m=mpy(latS);
+    var sfx=GW/(px1m-px0m), sfy=GHm/(py1m-py0m);
+    var tX0=Math.floor(px0m/256), tX1=Math.floor((px1m-1)/256);
+    var tY0=Math.floor(py0m/256), tY1=Math.floor((py1m-1)/256);
+    var tLoads=[];
+    for(var tx=tX0;tx<=tX1;tx++) for(var ty=tY0;ty<=tY1;ty++){
+      (function(_tx,_ty){
+        tLoads.push(new Promise(function(rs){
+          var im=new Image(); im.crossOrigin='anonymous';
+          im.onload=function(){
+            bx.drawImage(im,(_tx*256-px0m)*sfx,(_ty*256-py0m)*sfy,256*sfx,256*sfy); rs();
+          };
+          im.onerror=rs;
+          var sv=['a','b','c','d'][(Math.abs(_tx)+Math.abs(_ty))%4];
+          im.src='https://'+sv+'.basemaps.cartocdn.com/dark_all/'+z+'/'+_tx+'/'+_ty+'.png';
+        }));
+      })(tx,ty);
+    }
+    await Promise.all(tLoads);
+  }catch(e){console.warn('Fons GIF:',e);}
+
   try{
     var workerUrl=await _getGifWorker();
     var gif=new GIF({workers:1,quality:10,width:GW,height:GH,workerScript:workerUrl});
     var framesPNG=[]; // reutilitzats per al ZIP
     for(var i=0;i<res.length;i++){
       var r=res[i];
+      gx.imageSmoothingEnabled=true;
       gx.fillStyle='#0d1117'; gx.fillRect(0,0,GW,GH);
-      if(r.colImg) gx.drawImage(r.colImg,x0,y0,rw,rh,0,26,GW,GH-26);
+      gx.drawImage(bgC,0,26);
+      if(r.colImg){
+        // Warp del radar a Mercator perquè encaixe amb el fons
+        var wcv=_warpMercator(r.colImg);
+        gx.imageSmoothingEnabled=false;
+        gx.globalAlpha=0.88;
+        gx.drawImage(wcv,x0,yTopW,rw,yBotW-yTopW,0,26,GW,GHm);
+        gx.globalAlpha=1;
+      }
       gx.fillStyle='rgba(0,0,0,.8)'; gx.fillRect(0,0,GW,26);
       gx.fillStyle='#fff'; gx.font='bold 15px monospace'; gx.textAlign='left';
       gx.fillText(nomRaw+' · '+r.ts.slice(0,16).replace('T',' ')+' UTC'
