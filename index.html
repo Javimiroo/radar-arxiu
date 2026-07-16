@@ -282,19 +282,52 @@ function carregarDia(data){
 }
 
 // ── Mostrar frame ─────────────────────────────────────────────────────────
+// Rectificació Mercator: les PNG són equirectangulars (graus uniformes) però
+// Leaflet les estira linealment en Web Mercator -> desplaçament de ~13 px
+// (~15 km) al centre del domini si no es corregeix.
+var _warpCache={}, _showToken=0;
+function _mercY(lat){return Math.log(Math.tan(Math.PI/4+lat*Math.PI/360))}
+var _MY_N=_mercY(44.0), _MY_S=_mercY(35.5);
+
+function _warpMercator(img){
+  var c=document.createElement('canvas'); c.width=1400; c.height=850;
+  var ctx=c.getContext('2d'); ctx.imageSmoothingEnabled=false;
+  for(var r=0;r<850;r++){
+    var yy=_MY_N-(r+0.5)/850*(_MY_N-_MY_S);
+    var lat=(2*Math.atan(Math.exp(yy))-Math.PI/2)*180/Math.PI;
+    var sr=Math.min(849,Math.max(0,(44.0-lat)*100-0.5));
+    ctx.drawImage(img,0,sr,1400,1,0,r,1400,1);
+  }
+  return c;
+}
+function _overlayUrl(f,cb){
+  if(_warpCache[f.url]) return cb(_warpCache[f.url]);
+  var img=new Image(); img.crossOrigin='anonymous';
+  img.onload=function(){
+    try{_warpCache[f.url]=_warpMercator(img).toDataURL()}
+    catch(e){_warpCache[f.url]=f.url+'?_=1'}
+    cb(_warpCache[f.url]);
+  };
+  img.onerror=function(){cb(f.url+'?_=1')};
+  img.src=f.url+'?_=1';
+}
+
 function show(i){
   if(!frames.length) return;
   i=((i%frames.length)+frames.length)%frames.length;
   cur=i;
   document.getElementById('tl').value=i;
-  if(overlay) map.removeLayer(overlay);
   var f=frames[i];
-  var url=preloaded&&frameCache[f.url]?frameCache[f.url].src:f.url+'?_=1';
-  overlay=L.imageOverlay(url,BOUNDS,{opacity:0.88,zIndex:400}).addTo(map);
-  px(overlay.getElement());
-  overlay.on('load',function(){px(this.getElement())});
+  var tok=++_showToken;
+  _overlayUrl(f,function(url){
+    if(tok!==_showToken) return;
+    if(overlay) map.removeLayer(overlay);
+    overlay=L.imageOverlay(url,BOUNDS,{opacity:0.88,zIndex:400}).addTo(map);
+    px(overlay.getElement());
+    overlay.on('load',function(){px(this.getElement())});
+  });
   document.getElementById('info').textContent=f.ts.replace('T',' ').replace(':00Z',' UTC');
-  if(curProd==='echotop'||curProd==='radar_ind') _carregarAlt(url);
+  if(curProd==='echotop'||curProd==='radar_ind') _carregarAlt(f.url+'?_=1');
 }
 
 // ── Precàrrega ────────────────────────────────────────────────────────────
@@ -309,15 +342,11 @@ function precarregar(){
   var n=frames.length, done=0;
   if(!n){bar.style.display='none';return;}
   frames.forEach(function(f){
-    if(frameCache[f.url]){done++;if(done===n)acabarPrecarrega();return;}
-    var img=new Image();
-    img.onload=img.onerror=function(){
+    _overlayUrl(f,function(){
       done++;
       fill.style.width=(done/n*100)+'%';
       if(done===n) acabarPrecarrega();
-    };
-    img.src=f.url+'?_=1';
-    frameCache[f.url]=img;
+    });
   });
 }
 function acabarPrecarrega(){
@@ -429,8 +458,8 @@ map.on('mousemove',function(e){
   var tt=document.getElementById('alt-tooltip');
   if(!altEnabled||!altLoaded){tt.style.display='none';return;}
   var lat=e.latlng.lat, lon=e.latlng.lng;
-  var px=Math.round((lon+9.5)/14.0*1400);
-  var py=Math.round((44.0-lat)/8.5*850);
+  var px=Math.floor((lon+9.5)*100);
+  var py=Math.floor((44.0-lat)*100);
   if(px<0||px>=1400||py<0||py>=850){tt.style.display='none';return;}
   var d=_altCtx.getImageData(px,py,1,1).data;
   var label=ALT_LABELS[d[0]];
@@ -649,18 +678,20 @@ async function generarGIF(){
   for(var i=0;i<fSel.length;i++){
     var f=fSel[i];
     await new Promise(function(resolve){
-      var img=new Image(); img.crossOrigin='anonymous';
-      img.onload=function(){
-        ctx.drawImage(bgCanvas,0,0);
-        _dibuixarRadar(ctx,img,W,H);
-        _dibuixarHUD(ctx,f.ts,W,H);
-        gif.addFrame(canvas,{delay:delay,copy:true});
-        done++; setB(done/fSel.length*70);
-        setS('Carregant frames ('+done+'/'+fSel.length+')…');
-        resolve();
-      };
-      img.onerror=resolve;
-      img.src=f.url+'?_=1';
+      _overlayUrl(f,function(u){
+        var img=new Image();
+        img.onload=function(){
+          ctx.drawImage(bgCanvas,0,0);
+          _dibuixarRadar(ctx,img,W,H);
+          _dibuixarHUD(ctx,f.ts,W,H);
+          gif.addFrame(canvas,{delay:delay,copy:true});
+          done++; setB(done/fSel.length*70);
+          setS('Carregant frames ('+done+'/'+fSel.length+')…');
+          resolve();
+        };
+        img.onerror=resolve;
+        img.src=u;
+      });
     });
   }
 
