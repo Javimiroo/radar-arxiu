@@ -981,6 +981,87 @@ function drawCompass(sel){
   }
 }
 
+// Versió d'exportació de la brúixola (ZIP): més gran, amb llegenda d'hores
+function renderCompassExport(titol,t0,t1){
+  var n=calcCompArrows.length;
+  var W=780,H=580;
+  var cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  var g=cv.getContext('2d');
+  g.fillStyle='#0d1117'; g.fillRect(0,0,W,H);
+  g.fillStyle='#e67e22'; g.font='bold 21px sans-serif'; g.textAlign='left';
+  g.fillText(titol,22,36);
+  g.fillStyle='#8a97a5'; g.font='12px sans-serif';
+  g.fillText(t0.slice(0,10)+' \u00b7 '+t0.slice(11,16)+'\u2013'+t1.slice(11,16)+
+    ' UTC \u00b7 despla\u00e7ament del centroide des del punt inicial',22,56);
+  var cx=255,cy=320,R=205;
+  var maxKm=0.2; calcCompArrows.forEach(function(a){if(a.km>maxKm)maxKm=a.km});
+  var rs=R/maxKm;
+  var passos=[0.1,0.2,0.5,1,2,5,10,20,50,100];
+  var pas=passos.find(function(p){return maxKm/p<=4})||100;
+  for(var k=pas;k<=maxKm+1e-9;k+=pas){
+    g.beginPath();g.arc(cx,cy,k*rs,0,7);
+    g.strokeStyle='#1f2733';g.stroke();
+    g.fillStyle='#5d6b7a'; g.font='10px sans-serif'; g.textAlign='left';
+    g.fillText((k<1?k.toFixed(1):Math.round(k))+' km',cx+5,cy-k*rs-4);
+  }
+  g.beginPath();g.arc(cx,cy,R,0,7);g.strokeStyle='#33404f';g.lineWidth=1.5;g.stroke();g.lineWidth=1;
+  var dirs=[['N',0],['NE',45],['E',90],['SE',135],['S',180],['SO',225],['O',270],['NO',315]];
+  g.strokeStyle='#1c232e';
+  dirs.forEach(function(d){
+    var a=d[1]*Math.PI/180;
+    g.beginPath();g.moveTo(cx,cy);
+    g.lineTo(cx+Math.sin(a)*R,cy-Math.cos(a)*R);g.stroke();
+  });
+  g.font='bold 13px sans-serif'; g.textAlign='center';
+  dirs.forEach(function(d){
+    var a=d[1]*Math.PI/180, rr=R+17;
+    g.fillStyle=(d[1]%90===0)?'#aab7c4':'#5d6b7a';
+    g.fillText(d[0],cx+Math.sin(a)*rr,cy-Math.cos(a)*rr+5);
+  });
+  calcCompArrows.forEach(function(a,i){
+    if(a.km<=0)return;
+    var ex=cx+Math.sin(a.rumb*Math.PI/180)*a.km*rs;
+    var ey=cy-Math.cos(a.rumb*Math.PI/180)*a.km*rs;
+    var hue=Math.round(220-220*(n>1?i/(n-1):0));
+    g.strokeStyle='hsl('+hue+',85%,55%)'; g.fillStyle=g.strokeStyle; g.lineWidth=2;
+    g.beginPath();g.moveTo(cx,cy);g.lineTo(ex,ey);g.stroke();
+    var aA=Math.atan2(ey-cy,ex-cx);
+    g.beginPath();
+    g.moveTo(ex,ey);
+    g.lineTo(ex-8*Math.cos(aA-0.42),ey-8*Math.sin(aA-0.42));
+    g.lineTo(ex-8*Math.cos(aA+0.42),ey-8*Math.sin(aA+0.42));
+    g.closePath();g.fill();
+  });
+  g.fillStyle='#fff';g.beginPath();g.arc(cx,cy,4,0,7);g.fill();
+  g.fillStyle='#8a97a5';g.font='10px sans-serif';g.textAlign='center';
+  g.fillText('origen',cx,cy+18);
+  var lx=530,ly=100;
+  g.fillStyle='#aab7c4'; g.font='bold 12px sans-serif'; g.textAlign='left';
+  g.fillText('Hora (UTC) \u00b7 despla\u00e7. \u00b7 rumb',lx,ly-12);
+  var maxRows=19;
+  var stepL=Math.max(1,Math.ceil(n/maxRows));
+  var row=0;
+  for(var i=0;i<n;i+=stepL){
+    var a=calcCompArrows[i];
+    var hue=Math.round(220-220*(n>1?i/(n-1):0));
+    var yy=ly+row*21;
+    g.fillStyle='hsl('+hue+',85%,55%)';
+    g.fillRect(lx,yy,26,11);
+    g.fillStyle='#c7d1db'; g.font='11px monospace';
+    g.fillText(a.ts.slice(11,16)+'  '+a.km.toFixed(1).padStart(5)+' km  '+_sector(a.rumb),lx+34,yy+10);
+    row++;
+  }
+  var last=calcCompArrows[n-1];
+  if(last&&last.km>0){
+    g.fillStyle='#e67e22'; g.font='bold 13px sans-serif';
+    g.fillText('Despla\u00e7ament net: '+last.km.toFixed(1)+' km cap al '+
+      _sector(last.rumb)+' ('+last.rumb.toFixed(0)+'\u00b0)',lx,H-46);
+  }
+  g.fillStyle='#4a5560'; g.font='10px sans-serif';
+  g.fillText('Radar AEMET \u00b7 arxiu GRAF',lx,H-24);
+  return cv;
+}
+
 async function executarCalcul(){
   var nomRaw=(document.getElementById('calcNom').value||'incendi').trim();
   var nom=nomRaw.replace(/[^\wÀ-ÿ\- ]/g,'').replace(/ +/g,'_')||'incendi';
@@ -1216,7 +1297,8 @@ async function executarCalcul(){
     var heatBlob=await new Promise(function(rs){hm.toBlob(rs,'image/png')});
     carpeta.file(nom+'_perfil.png',heatBlob);
     if(calcCompArrows.length){
-      var compBlob=await new Promise(function(rs){document.getElementById('calcComp').toBlob(rs,'image/png')});
+      var compCv=renderCompassExport(nomRaw,t0,t1);
+      var compBlob=await new Promise(function(rs){compCv.toBlob(rs,'image/png')});
       carpeta.file(nom+'_bruixola.png',compBlob);
     }
     if(gifBlob) carpeta.file(nom+'_animacio.gif',gifBlob);
