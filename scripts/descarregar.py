@@ -141,11 +141,39 @@ def arxivar_composit():
         desa_frame(dia_dir, nom, arr, meta, png, "radar")
 
 # Helpers ECHOTOP
+# Escala oficial AEMET (tag ESCALA del GeoTIFF TOP): color RGB → alçada en km.
+# L'index de classe (1-13) es guarda al *_alt.png; el visor el tradueix a rang de km.
+ESCALA_TOP = [
+    # (R, G, B), classe
+    ((  0,   0, 252),  1),  # 1-2 km
+    ((  0, 130, 255),  2),  # 2-3 km
+    ((  0, 190, 255),  3),  # 3-4 km
+    ((  0, 255, 255),  4),  # 4-5 km
+    (( 67, 131,  35),  5),  # 5-6 km
+    ((150, 200,   0),  6),  # 6-7 km
+    ((  0, 250,   0),  7),  # 7-8 km
+    ((255, 255,   0),  8),  # 8-10 km
+    ((255, 170,   0),  9),  # 10-12 km
+    ((255, 107,   0), 10),  # 12-14 km
+    ((252,   0,   0), 11),  # 14-16 km
+    ((200,   0,  80), 12),  # 16-20 km
+    ((130,  10, 110), 13),  # >20 km
+]
+
 def _mask_echotop(patch):
-    R, G, B = patch[:,:,0], patch[:,:,1], patch[:,:,2]
-    fons_gris = (R > 220) & (G > 220) & (B > 220)
-    fons_groc = (R > 240) & (G > 240) & (B < 20)
-    return ~fons_gris & ~fons_groc
+    # Dades reals: alfa >= 240 (fons gris A=179, zona fora d'abast A=0)
+    return patch[:,:,3] >= 240
+
+def _decode_top(patch, mask):
+    """Converteix color RGB -> classe d'alçada (1-13) per coincidencia mes propera."""
+    classes = np.zeros(patch.shape[:2], dtype=np.uint8)
+    if not mask.any(): return classes
+    px = patch[mask][:, :3].astype(np.int32)          # (N,3)
+    pal = np.array([c for c, _ in ESCALA_TOP], np.int32)  # (13,3)
+    ids = np.array([i for _, i in ESCALA_TOP], np.uint8)
+    d2 = ((px[:, None, :] - pal[None, :, :]) ** 2).sum(axis=2)  # (N,13)
+    classes[mask] = ids[d2.argmin(axis=1)]
+    return classes
 
 def _col_loca_radar(rgba, b, w, h, esp_lon, esp_lat, out_w, out_h):
     """
@@ -214,7 +242,7 @@ def arxivar_echotop():
             patch, ox0, oy0, ox1, oy1 = res
 
             data_mask = _mask_echotop(patch)
-            alt = patch[:,:,3]
+            alt = _decode_top(patch, data_mask)
 
             reg_alt  = comp_alt [oy0:oy1, ox0:ox1]
             reg_rgba = comp_rgba[oy0:oy1, ox0:ox1]
@@ -240,7 +268,7 @@ def arxivar_echotop():
                     "bounds": {"lon_min":ESP_LON[0],"lat_min":ESP_LAT[0],
                                "lon_max":ESP_LON[1],"lat_max":ESP_LAT[1]},
                     "shape": [OUT_H, OUT_W], "px_actius": n_act,
-                    "alt_units": "0.05km_per_unit",
+                    "alt_units": "classe_escala_top_1_13",
                 }
                 buf = io.BytesIO()
                 PILImage.fromarray(canvas_ind, "RGBA").save(buf, "PNG", optimize=True)
@@ -261,7 +289,7 @@ def arxivar_echotop():
                 "bounds": {"lon_min":ESP_LON[0],"lat_min":ESP_LAT[0],
                            "lon_max":ESP_LON[1],"lat_max":ESP_LAT[1]},
                 "shape": [OUT_H, OUT_W], "px_actius": n_act,
-                "alt_units": "0.05km_per_unit",
+                "alt_units": "classe_escala_top_1_13",
             }
             buf = io.BytesIO()
             PILImage.fromarray(comp_rgba, "RGBA").save(buf, "PNG", optimize=True)

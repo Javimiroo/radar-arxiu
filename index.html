@@ -119,12 +119,16 @@ select{background:#1e1e1e;border:1px solid #333;color:#ccc;padding:5px 7px;
   <div class="lrow"><div class="lsw" style="background:#c8005a"></div>&gt;65 dBZ</div>
   <h4 style="margin-top:8px">ECHOTOP</h4>
   <div class="lrow"><div class="lsw" style="background:#0000fc"></div>1–2 km</div>
-  <div class="lrow"><div class="lsw" style="background:#0082ff"></div>2–4 km</div>
+  <div class="lrow"><div class="lsw" style="background:#0082ff"></div>2–3 km</div>
+  <div class="lrow"><div class="lsw" style="background:#00beff"></div>3–4 km</div>
   <div class="lrow"><div class="lsw" style="background:#00ffff"></div>4–5 km</div>
-  <div class="lrow"><div class="lsw" style="background:#00fa00"></div>6–8 km</div>
+  <div class="lrow"><div class="lsw" style="background:#438323"></div>5–6 km</div>
+  <div class="lrow"><div class="lsw" style="background:#96c800"></div>6–7 km</div>
+  <div class="lrow"><div class="lsw" style="background:#00fa00"></div>7–8 km</div>
   <div class="lrow"><div class="lsw" style="background:#ffff00"></div>8–10 km</div>
-  <div class="lrow"><div class="lsw" style="background:#ffa600"></div>10–12 km</div>
-  <div class="lrow"><div class="lsw" style="background:#ff0000"></div>14–16 km</div>
+  <div class="lrow"><div class="lsw" style="background:#ffaa00"></div>10–12 km</div>
+  <div class="lrow"><div class="lsw" style="background:#ff6b00"></div>12–14 km</div>
+  <div class="lrow"><div class="lsw" style="background:#fc0000"></div>14–16 km</div>
   <div class="lrow"><div class="lsw" style="background:#c80050"></div>16–20 km</div>
   <div class="lrow"><div class="lsw" style="background:#820a6e"></div>&gt; 20 km</div>
 </div>
@@ -413,6 +417,11 @@ function _carregarAlt(url){
   img.src=altUrl;
 }
 
+// Classes de l'escala TOP d'AEMET (1-13) -> rang d'alçada
+var ALT_LABELS={1:'1–2 km',2:'2–3 km',3:'3–4 km',4:'4–5 km',
+  5:'5–6 km',6:'6–7 km',7:'7–8 km',8:'8–10 km',9:'10–12 km',
+  10:'12–14 km',11:'14–16 km',12:'16–20 km',13:'>20 km'};
+
 map.on('mousemove',function(e){
   var tt=document.getElementById('alt-tooltip');
   if(!altEnabled||!altLoaded){tt.style.display='none';return;}
@@ -421,12 +430,12 @@ map.on('mousemove',function(e){
   var py=Math.round((44.0-lat)/8.5*850);
   if(px<0||px>=1400||py<0||py>=850){tt.style.display='none';return;}
   var d=_altCtx.getImageData(px,py,1,1).data;
-  if(d[0]===0){tt.style.display='none';return;}
-  var km=(d[0]*0.05).toFixed(1);
+  var label=ALT_LABELS[d[0]];
+  if(!label){tt.style.display='none';return;}
   tt.style.display='block';
   tt.style.left=(e.originalEvent.clientX+14)+'px';
   tt.style.top =(e.originalEvent.clientY-10)+'px';
-  tt.textContent='~'+km+' km';
+  tt.textContent='☁ '+label;
 });
 
 map.on('mouseout',function(){
