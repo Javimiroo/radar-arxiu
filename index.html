@@ -799,6 +799,17 @@ async function generarGIF(){
   <canvas id="calcChart" width="660" height="230" style="width:100%;background:#0a0a0a;border-radius:6px"></canvas>
   <h4 style="color:#888;font-size:11px;text-transform:uppercase;margin:14px 0 4px">Perfil vertical temporal (cobertura per franja d'alçada)</h4>
   <canvas id="calcHeat" width="660" height="230" style="width:100%;background:#0a0a0a;border-radius:6px"></canvas>
+  <h4 style="color:#888;font-size:11px;text-transform:uppercase;margin:14px 0 4px">Brúixola de moviment (des del punt inicial)</h4>
+  <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+    <canvas id="calcComp" width="380" height="380" style="background:#0a0a0a;border-radius:8px;flex-shrink:0;max-width:100%"></canvas>
+    <div style="flex:1;min-width:180px">
+      <div id="calcCompInfo" style="color:#bbb;line-height:1.7;margin-bottom:8px">—</div>
+      <input type="range" id="calcCompSlider" min="0" max="0" value="0"
+        style="width:100%;accent-color:#e67e22" oninput="drawCompass(parseInt(this.value))">
+      <div style="color:#555;font-size:10px;margin-top:4px">
+        ◀ ▶ Recorre les fletxes de 10 en 10 min · la seleccionada es ressalta, la resta es difuminen</div>
+    </div>
+  </div>
   <h4 style="color:#888;font-size:11px;text-transform:uppercase;margin:14px 0 4px">Animació de l'àrea</h4>
   <div style="text-align:center"><img id="calcGifPrev" style="max-width:100%;border-radius:6px;image-rendering:pixelated"></div>
   <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
@@ -807,7 +818,7 @@ async function generarGIF(){
   </div>
   <div style="color:#555;font-size:10px;margin-top:8px">
     El ZIP conté: 1 PNG de l'àrea per cada pas de 10 min (nom_data_hora), sèrie CSV, gràfica i GIF.
-    El track del centroide queda dibuixat al mapa (es borra en tancar).
+    La brúixola mostra el desplaçament del centroide des del punt inicial (color = hora).
   </div>
 </div>
 
@@ -907,6 +918,72 @@ function _rumb(a,b){ // graus des del nord
 function _sector(d){
   var s=['N','NE','E','SE','S','SO','O','NO'];
   return s[Math.round(d/45)%8];
+}
+
+var calcCompArrows=[];
+function drawCompass(sel){
+  var cv=document.getElementById('calcComp'); if(!cv)return;
+  var g=cv.getContext('2d');
+  var W=cv.width,H=cv.height,cx=W/2,cy=H/2,R=W/2-32;
+  g.clearRect(0,0,W,H);
+  var n=calcCompArrows.length;
+  var maxKm=0.2;
+  calcCompArrows.forEach(function(a){if(a.km>maxKm)maxKm=a.km});
+  var rs=R/maxKm;
+  // Anells d'escala
+  var passos=[0.1,0.2,0.5,1,2,5,10,20,50,100];
+  var pas=passos.find(function(p){return maxKm/p<=4})||100;
+  g.strokeStyle='#1e1e1e'; g.fillStyle='#555'; g.font='9px sans-serif'; g.textAlign='left';
+  for(var k=pas;k<=maxKm+1e-9;k+=pas){
+    g.beginPath();g.arc(cx,cy,k*rs,0,7);g.stroke();
+    g.fillText((k<1?k.toFixed(1):Math.round(k))+' km',cx+3,cy-k*rs-3);
+  }
+  g.beginPath();g.arc(cx,cy,R,0,7);g.strokeStyle='#2e2e2e';g.stroke();
+  // Creu cardinal
+  g.strokeStyle='#242424';
+  g.beginPath();g.moveTo(cx-R,cy);g.lineTo(cx+R,cy);g.moveTo(cx,cy-R);g.lineTo(cx,cy+R);g.stroke();
+  g.fillStyle='#888'; g.font='bold 13px sans-serif'; g.textAlign='center';
+  g.fillText('N',cx,cy-R-10); g.fillText('S',cx,cy+R+20);
+  g.textAlign='left'; g.fillText('E',cx+R+7,cy+5);
+  g.textAlign='right'; g.fillText('O',cx-R-7,cy+5);
+  // Fletxes (color segons hora: blau inici -> roig final)
+  calcCompArrows.forEach(function(a,i){
+    if(a.km<=0)return;
+    var ex=cx+Math.sin(a.rumb*Math.PI/180)*a.km*rs;
+    var ey=cy-Math.cos(a.rumb*Math.PI/180)*a.km*rs;
+    var hue=Math.round(220-220*(n>1?i/(n-1):0));
+    var col='hsl('+hue+',85%,55%)';
+    var isSel=(sel>=0&&i===sel), dim=(sel>=0&&i!==sel);
+    g.globalAlpha=dim?0.14:1;
+    g.strokeStyle=col; g.fillStyle=col; g.lineWidth=isSel?3:1.6;
+    g.beginPath();g.moveTo(cx,cy);g.lineTo(ex,ey);g.stroke();
+    var aA=Math.atan2(ey-cy,ex-cx), hs=isSel?12:7;
+    g.beginPath();
+    g.moveTo(ex,ey);
+    g.lineTo(ex-hs*Math.cos(aA-0.42),ey-hs*Math.sin(aA-0.42));
+    g.lineTo(ex-hs*Math.cos(aA+0.42),ey-hs*Math.sin(aA+0.42));
+    g.closePath();g.fill();
+    if(isSel){
+      g.font='bold 11px monospace';g.textAlign='center';
+      g.fillText(a.ts.slice(11,16),ex,ey-14);
+    }
+  });
+  g.globalAlpha=1;
+  // Punt central (origen)
+  g.fillStyle='#fff';g.beginPath();g.arc(cx,cy,3,0,7);g.fill();
+  // Info lateral
+  var info=document.getElementById('calcCompInfo');
+  if(sel>=0&&calcCompArrows[sel]){
+    var a=calcCompArrows[sel];
+    info.innerHTML='<b style="color:#e67e22;font-size:14px">'+a.ts.slice(11,16)+' UTC</b><br>'+
+      'Desplaçament: <b>'+a.km.toFixed(2)+' km</b><br>'+
+      'Rumb: <b>'+a.rumb.toFixed(0)+'° ('+_sector(a.rumb)+')</b>'+
+      (a.max?'<br>Màx ECHOTOP: <b>'+ALT_LABELS[a.max]+'</b>':'');
+  } else if(n){
+    info.innerHTML='<b>'+n+'</b> passos de 10 min<br>Del <span style="color:hsl(220,85%,60%)">blau</span> (inici) al <span style="color:hsl(0,85%,60%)">roig</span> (final).<br>Mou el control per seleccionar.';
+  } else {
+    info.textContent='Sense moviment mesurable (un sol punt amb dades).';
+  }
 }
 
 async function executarCalcul(){
@@ -1036,20 +1113,19 @@ async function executarCalcul(){
     if(i%step===0) hc.fillText(r.ts.slice(11,16),hmL+i*cellW+cellW/2,hm.height-6);
   });
 
-  // ── 5. Track del centroide al mapa ──
+  // ── 5. Brúixola de moviment (fletxes des del punt inicial) ──
   _netejaTrack();
-  var pts=res.filter(function(r){return r.cen}).map(function(r){return r.cen});
-  if(pts.length>1){
-    calcTrackLayers.push(L.polyline(pts,{color:'#e67e22',weight:2.5,opacity:.9}).addTo(map));
-    res.forEach(function(r,i){
-      if(!r.cen)return;
-      var isLast=(i===res.length-1);
-      calcTrackLayers.push(L.circleMarker(r.cen,{radius:isLast?6:3.5,
-        color:isLast?'#fff':'#e67e22',fillColor:'#e67e22',fillOpacity:.95,weight:isLast?2:1})
-        .bindTooltip(r.ts.slice(11,16)+' UTC · màx '+(r.max?ALT_LABELS[r.max]:'—'))
-        .addTo(map));
-    });
-  }
+  calcCompArrows=[];
+  var oriCen=null;
+  res.forEach(function(r){
+    if(!r.cen)return;
+    if(!oriCen){oriCen=r.cen;return;}
+    calcCompArrows.push({ts:r.ts,km:_hav(oriCen,r.cen),rumb:_rumb(oriCen,r.cen),max:r.max});
+  });
+  var slC=document.getElementById('calcCompSlider');
+  slC.max=Math.max(0,calcCompArrows.length-1);
+  slC.value=slC.max;
+  drawCompass(-1); // totes sòlides (aquesta versió va al ZIP)
 
   // ── 6. GIF de l'àrea ──
   setS('Generant GIF…'); setB(55);
@@ -1098,6 +1174,10 @@ async function executarCalcul(){
     carpeta.file(nom+'_grafica.png',chartBlob);
     var heatBlob=await new Promise(function(rs){hm.toBlob(rs,'image/png')});
     carpeta.file(nom+'_perfil.png',heatBlob);
+    if(calcCompArrows.length){
+      var compBlob=await new Promise(function(rs){document.getElementById('calcComp').toBlob(rs,'image/png')});
+      carpeta.file(nom+'_bruixola.png',compBlob);
+    }
     if(gifBlob) carpeta.file(nom+'_animacio.gif',gifBlob);
     var zBlob=await zip.generateAsync({type:'blob'},function(m){setB(80+m.percent*0.2)});
     zipUrl=URL.createObjectURL(zBlob);
@@ -1145,6 +1225,7 @@ async function executarCalcul(){
   setB(100);
   tancarCalcul();
   document.getElementById('calcres-panel').style.display='block';
+  drawCompass(parseInt(document.getElementById('calcCompSlider').value));
   setStatus('✓ Estudi complet: '+nomRaw);
 }
 </script>
