@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',sans-serif;display:flex;flex-direction:column;
@@ -94,6 +95,7 @@ select{background:#1e1e1e;border:1px solid #333;color:#ccc;padding:5px 7px;
   </select>
   <div class="sep"></div>
   <button class="btn" id="bAlt" onclick="toggleAlt()" title="Mostra alçada ECHOTOP en passar el cursor" style="display:none">📐 Alçada</button>
+  <button class="btn" id="bCalc" onclick="iniciarCalcul()" title="Estudi d'àrea: evolució ECHOTOP d'un incendi" style="display:none">📊 Càlcul</button>
   <button class="btn" onclick="toggleLlegenda()">🎨</button>
   <button class="btn" onclick="obrirGIF()">🎬 GIF</button>
   <span id="status">Carregant…</span>
@@ -353,6 +355,7 @@ function switchProduct(p,btn){
   document.getElementById('selRadar').style.display=p==='radar_ind'?'inline-block':'none';
   var bAlt=document.getElementById('bAlt');
   bAlt.style.display=(p==='echotop'||p==='radar_ind')?'inline-block':'none';
+  document.getElementById('bCalc').style.display=(p==='echotop'||p==='radar_ind')?'inline-block':'none';
   if(p==='composit'){altLoaded=false;document.getElementById('alt-tooltip').style.display='none';}
   poblarSelectors();
 }
@@ -715,6 +718,405 @@ async function generarGIF(){
     <button class="btn sel" id="btnGenGIF" onclick="generarGIF()">▶ Generar</button>
   </div>
 </div>
+
+<!-- CÀLCUL: panell configuració -->
+<div id="calc-backdrop" onclick="tancarCalcul()"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:2900"></div>
+<div id="calc-panel"
+  style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:#111;border:1px solid #2a2a2a;border-radius:10px;padding:18px;
+  z-index:3000;min-width:320px;font-size:12px">
+  <div style="color:#e67e22;font-weight:bold;font-size:13px;margin-bottom:12px">📊 Estudi d'àrea ECHOTOP</div>
+  <div style="display:grid;gap:8px;margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="color:#888;width:55px;flex-shrink:0">Incendi:</label>
+      <input type="text" id="calcNom" placeholder="p.ex. Bovera"
+        style="flex:1;background:#1e1e1e;border:1px solid #333;color:#ccc;padding:4px 6px;border-radius:4px;font-size:11px">
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="color:#888;width:55px;flex-shrink:0">Inici:</label>
+      <select id="calcInici" style="flex:1;background:#1e1e1e;border:1px solid #333;color:#ccc;padding:4px 6px;border-radius:4px;font-size:11px"></select>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="color:#888;width:55px;flex-shrink:0">Final:</label>
+      <select id="calcFinal" style="flex:1;background:#1e1e1e;border:1px solid #333;color:#ccc;padding:4px 6px;border-radius:4px;font-size:11px"></select>
+    </div>
+  </div>
+  <div id="calc-progress" style="display:none;margin-bottom:10px">
+    <div id="calc-status" style="color:#888;margin-bottom:5px">Analitzant…</div>
+    <div style="background:#222;border-radius:3px;height:4px">
+      <div id="calc-bar" style="background:#e67e22;height:100%;width:0%;border-radius:3px;transition:width .15s"></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;justify-content:flex-end">
+    <button class="btn" onclick="tancarCalcul()">Cancel·lar</button>
+    <button class="btn sel" id="btnCalc" onclick="executarCalcul()" style="background:#e67e22;border-color:#e67e22">▶ Analitzar</button>
+  </div>
+</div>
+
+<!-- CÀLCUL: panell resultats -->
+<div id="calcres-panel"
+  style="display:none;position:fixed;top:50px;right:10px;bottom:60px;width:700px;max-width:94vw;
+  background:#111;border:1px solid #2a2a2a;border-radius:10px;padding:16px;z-index:2800;
+  overflow-y:auto;font-size:12px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <span id="calcres-titol" style="color:#e67e22;font-weight:bold;font-size:14px">📊 Resultats</span>
+    <button class="btn" onclick="tancarResultats()">✕ Tancar</button>
+  </div>
+  <div id="calcres-resum" style="color:#bbb;line-height:1.6;margin-bottom:12px"></div>
+  <h4 style="color:#888;font-size:11px;text-transform:uppercase;margin:10px 0 4px">Alçada màxima ECHOTOP (10-minutal)</h4>
+  <canvas id="calcChart" width="660" height="230" style="width:100%;background:#0a0a0a;border-radius:6px"></canvas>
+  <h4 style="color:#888;font-size:11px;text-transform:uppercase;margin:14px 0 4px">Perfil vertical temporal (cobertura per franja d'alçada)</h4>
+  <canvas id="calcHeat" width="660" height="230" style="width:100%;background:#0a0a0a;border-radius:6px"></canvas>
+  <h4 style="color:#888;font-size:11px;text-transform:uppercase;margin:14px 0 4px">Animació de l'àrea</h4>
+  <div style="text-align:center"><img id="calcGifPrev" style="max-width:100%;border-radius:6px;image-rendering:pixelated"></div>
+  <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+    <a id="calcZipLink" class="btn sel" style="display:none;text-decoration:none">⬇ Descarregar-ho tot (ZIP)</a>
+    <a id="calcGifLink" class="btn" style="display:none;text-decoration:none">⬇ Només GIF</a>
+  </div>
+  <div style="color:#555;font-size:10px;margin-top:8px">
+    El ZIP conté: 1 PNG de l'àrea per cada pas de 10 min (nom_data_hora), sèrie CSV, gràfica i GIF.
+    El track del centroide queda dibuixat al mapa (es borra en tancar).
+  </div>
+</div>
+
+<script>
+// ══ CÀLCUL: estudi d'àrea ECHOTOP per a incendis ══════════════════════════
+var ALT_MAXKM={1:2,2:3,3:4,4:5,5:6,6:7,7:8,8:10,9:12,10:14,11:16,12:20,13:22};
+var ALT_COLORS={1:'#0000fc',2:'#0082ff',3:'#00beff',4:'#00ffff',5:'#438323',
+  6:'#96c800',7:'#00fa00',8:'#ffff00',9:'#ffaa00',10:'#ff6b00',
+  11:'#fc0000',12:'#c80050',13:'#820a6e'};
+var ALT_ETIQ={1:'2',2:'3',3:'4',4:'5',5:'6',6:'7',7:'8',8:'10',9:'12',10:'14',11:'16',12:'20',13:'20+'};
+
+var calcSelecting=false, calcP0=null, calcLayer=null, calcRect=null;
+var calcTrackLayers=[], calcZipUrl=null, calcGifUrl=null;
+
+function iniciarCalcul(){
+  if(!frames.length){alert('No hi ha frames ECHOTOP carregats per a aquesta data.');return;}
+  calcSelecting=true; calcP0=null;
+  if(calcLayer){map.removeLayer(calcLayer);calcLayer=null;}
+  _netejaTrack();
+  map.dragging.disable();
+  map.getContainer().style.cursor='crosshair';
+  setStatus('🖱 Dibuixa un rectangle sobre la zona (clic + arrossega)');
+}
+
+function _netejaTrack(){
+  calcTrackLayers.forEach(function(l){map.removeLayer(l)});
+  calcTrackLayers=[];
+}
+
+map.on('mousedown',function(e){
+  if(!calcSelecting)return;
+  calcP0=e.latlng;
+  calcLayer=L.rectangle(L.latLngBounds(calcP0,calcP0),
+    {color:'#e67e22',weight:2,fillOpacity:.08,dashArray:'4'}).addTo(map);
+});
+map.on('mousemove',function(e){
+  if(!calcSelecting||!calcP0||!calcLayer)return;
+  calcLayer.setBounds(L.latLngBounds(calcP0,e.latlng));
+});
+map.on('mouseup',function(e){
+  if(!calcSelecting||!calcP0)return;
+  calcSelecting=false;
+  map.dragging.enable();
+  map.getContainer().style.cursor='';
+  calcRect=L.latLngBounds(calcP0,e.latlng);
+  calcP0=null;
+  // Àrea mínima 0.05 graus
+  if(Math.abs(calcRect.getEast()-calcRect.getWest())<0.05||
+     Math.abs(calcRect.getNorth()-calcRect.getSouth())<0.05){
+    map.removeLayer(calcLayer);calcLayer=null;
+    setStatus('Àrea massa xicoteta — torna-ho a provar');
+    return;
+  }
+  obrirCalcul();
+});
+
+function obrirCalcul(){
+  var fmt=function(ts){return ts.replace('T',' ').replace(':00Z',' UTC')};
+  var opts=frames.map(function(f){return '<option value="'+f.ts+'">'+fmt(f.ts)+'</option>'}).join('');
+  document.getElementById('calcInici').innerHTML=opts;
+  document.getElementById('calcFinal').innerHTML=opts;
+  document.getElementById('calcFinal').selectedIndex=frames.length-1;
+  document.getElementById('calc-progress').style.display='none';
+  document.getElementById('btnCalc').disabled=false;
+  document.getElementById('calc-backdrop').style.display='block';
+  document.getElementById('calc-panel').style.display='block';
+}
+function tancarCalcul(){
+  document.getElementById('calc-backdrop').style.display='none';
+  document.getElementById('calc-panel').style.display='none';
+}
+function tancarResultats(){
+  document.getElementById('calcres-panel').style.display='none';
+  if(calcLayer){map.removeLayer(calcLayer);calcLayer=null;}
+  _netejaTrack();
+}
+
+function _carregaImg(src){
+  return new Promise(function(res){
+    var i=new Image(); i.crossOrigin='anonymous';
+    i.onload=function(){res(i)}; i.onerror=function(){res(null)};
+    i.src=src;
+  });
+}
+function _hav(a,b){ // km entre dos [lat,lon]
+  var R=6371,r=Math.PI/180;
+  var dLa=(b[0]-a[0])*r, dLo=(b[1]-a[1])*r;
+  var s=Math.sin(dLa/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dLo/2)**2;
+  return 2*R*Math.asin(Math.sqrt(s));
+}
+function _rumb(a,b){ // graus des del nord
+  var r=Math.PI/180;
+  var y=Math.sin((b[1]-a[1])*r)*Math.cos(b[0]*r);
+  var x=Math.cos(a[0]*r)*Math.sin(b[0]*r)-Math.sin(a[0]*r)*Math.cos(b[0]*r)*Math.cos((b[1]-a[1])*r);
+  return (Math.atan2(y,x)/r+360)%360;
+}
+function _sector(d){
+  var s=['N','NE','E','SE','S','SO','O','NO'];
+  return s[Math.round(d/45)%8];
+}
+
+async function executarCalcul(){
+  var nomRaw=(document.getElementById('calcNom').value||'incendi').trim();
+  var nom=nomRaw.replace(/[^\wÀ-ÿ\- ]/g,'').replace(/ +/g,'_')||'incendi';
+  var t0=document.getElementById('calcInici').value;
+  var t1=document.getElementById('calcFinal').value;
+  var fSel=frames.filter(function(f){return f.ts>=t0&&f.ts<=t1});
+  if(!fSel.length){alert('Cap frame en el rang.');return;}
+  if(fSel.length>200){alert('Massa frames ('+fSel.length+'). Redueix el rang.');return;}
+
+  var setS=function(s){document.getElementById('calc-status').textContent=s};
+  var setB=function(p){document.getElementById('calc-bar').style.width=p+'%'};
+  document.getElementById('calc-progress').style.display='block';
+  document.getElementById('btnCalc').disabled=true;
+
+  // Rectangle -> píxels de la graella 1400x850 (100 px/grau)
+  var b=calcRect;
+  var x0=Math.max(0,Math.floor((b.getWest()+9.5)*100)), x1=Math.min(1400,Math.ceil((b.getEast()+9.5)*100));
+  var y0=Math.max(0,Math.floor((44.0-b.getNorth())*100)), y1=Math.min(850,Math.ceil((44.0-b.getSouth())*100));
+  var rw=x1-x0, rh=y1-y0;
+  if(rw<2||rh<2){alert('Àrea fora del domini del radar.');return;}
+
+  var cA=document.createElement('canvas'); cA.width=rw; cA.height=rh;
+  var xA=cA.getContext('2d',{willReadFrequently:true}); xA.imageSmoothingEnabled=false;
+
+  // ── 1. Anàlisi frame a frame ──
+  var res=[];
+  for(var i=0;i<fSel.length;i++){
+    var f=fSel[i];
+    setS('Analitzant '+(i+1)+'/'+fSel.length+'…'); setB((i+1)/fSel.length*45);
+    var altImg=await _carregaImg(f.url.replace(/\.png$/,'_alt.png')+'?_=1');
+    var colImg=await _carregaImg(f.url+'?_=1');
+    var r={ts:f.ts,colImg:colImg,max:0,n:0,counts:{},cen:null};
+    if(altImg){
+      xA.clearRect(0,0,rw,rh);
+      xA.drawImage(altImg,x0,y0,rw,rh,0,0,rw,rh);
+      var d=xA.getImageData(0,0,rw,rh).data;
+      var sx=0,sy=0;
+      for(var p=0;p<rw*rh;p++){
+        var v=d[p*4];
+        if(v>=1&&v<=13){
+          r.counts[v]=(r.counts[v]||0)+1; r.n++;
+          sx+=p%rw; sy+=Math.floor(p/rw);
+          if(v>r.max)r.max=v;
+        }
+      }
+      if(r.n>0){
+        r.cen=[44.0-(y0+sy/r.n+0.5)/100, -9.5+(x0+sx/r.n+0.5)/100];
+        var rad=r.cen[0]*Math.PI/180;
+        r.area=Math.round(r.n*111.32*Math.cos(rad)*0.01*110.57*0.01);
+      }
+    }
+    res.push(r);
+  }
+
+  // ── 2. Vectors de moviment (centroide) ──
+  var mov=[];
+  for(var i=1;i<res.length;i++){
+    var a=res[i-1],c=res[i];
+    if(a.cen&&c.cen){
+      var dk=_hav(a.cen,c.cen);
+      var dtMin=(new Date(c.ts)-new Date(a.ts))/60000;
+      mov.push({i:i,km:dk,rumb:_rumb(a.cen,c.cen),kmh:dtMin>0?dk/(dtMin/60):0});
+    } else mov.push(null);
+  }
+
+  // ── 3. Gràfica alçada màxima ──
+  var ch=document.getElementById('calcChart'), cc=ch.getContext('2d');
+  cc.clearRect(0,0,ch.width,ch.height);
+  var mL=38,mR=8,mT=12,mB=34, pw=ch.width-mL-mR, ph=ch.height-mT-mB;
+  var yMax=Math.max.apply(null,res.map(function(r){return r.max?ALT_MAXKM[r.max]:0}).concat([12]))+2;
+  cc.strokeStyle='#222'; cc.fillStyle='#666'; cc.font='10px sans-serif'; cc.textAlign='right';
+  for(var k=0;k<=yMax;k+=2){
+    var yy=mT+ph-(k/yMax)*ph;
+    cc.beginPath();cc.moveTo(mL,yy);cc.lineTo(mL+pw,yy);cc.stroke();
+    cc.fillText(k+' km',mL-4,yy+3);
+  }
+  cc.textAlign='center';
+  var step=Math.max(1,Math.ceil(res.length/8));
+  res.forEach(function(r,i){
+    if(i%step===0){
+      var xx=mL+(res.length>1?i/(res.length-1):0.5)*pw;
+      cc.fillText(r.ts.slice(11,16),xx,mT+ph+14);
+    }
+  });
+  cc.strokeStyle='#e67e22'; cc.lineWidth=2; cc.beginPath();
+  var started=false;
+  res.forEach(function(r,i){
+    if(!r.max)return;
+    var xx=mL+(res.length>1?i/(res.length-1):0.5)*pw;
+    var yy=mT+ph-(ALT_MAXKM[r.max]/yMax)*ph;
+    if(!started){cc.moveTo(xx,yy);started=true}else cc.lineTo(xx,yy);
+  });
+  cc.stroke();
+  res.forEach(function(r,i){
+    if(!r.max)return;
+    var xx=mL+(res.length>1?i/(res.length-1):0.5)*pw;
+    var yy=mT+ph-(ALT_MAXKM[r.max]/yMax)*ph;
+    cc.fillStyle=ALT_COLORS[r.max];
+    cc.beginPath();cc.arc(xx,yy,4,0,7);cc.fill();
+    cc.strokeStyle='#000';cc.lineWidth=1;cc.stroke();
+  });
+
+  // ── 4. Perfil vertical temporal (heatmap) ──
+  var hm=document.getElementById('calcHeat'), hc=hm.getContext('2d');
+  hc.clearRect(0,0,hm.width,hm.height);
+  var hmL=38, cellW=(hm.width-hmL-8)/res.length, cellH=(hm.height-24)/13;
+  var maxCnt=1;
+  res.forEach(function(r){for(var cl in r.counts)if(r.counts[cl]>maxCnt)maxCnt=r.counts[cl]});
+  hc.font='10px sans-serif'; hc.fillStyle='#666'; hc.textAlign='right';
+  for(var cl=1;cl<=13;cl++){
+    var yy=(13-cl)*cellH;
+    if(cl%2===1||cl>=8) hc.fillText(ALT_ETIQ[cl],hmL-4,yy+cellH/2+3);
+  }
+  res.forEach(function(r,i){
+    for(var cl=1;cl<=13;cl++){
+      var cnt=r.counts[cl]||0;
+      if(!cnt)continue;
+      hc.globalAlpha=0.25+0.75*Math.sqrt(cnt/maxCnt);
+      hc.fillStyle=ALT_COLORS[cl];
+      hc.fillRect(hmL+i*cellW,(13-cl)*cellH,Math.max(1,cellW-0.5),cellH-0.5);
+    }
+  });
+  hc.globalAlpha=1; hc.fillStyle='#666'; hc.textAlign='center';
+  res.forEach(function(r,i){
+    if(i%step===0) hc.fillText(r.ts.slice(11,16),hmL+i*cellW+cellW/2,hm.height-6);
+  });
+
+  // ── 5. Track del centroide al mapa ──
+  _netejaTrack();
+  var pts=res.filter(function(r){return r.cen}).map(function(r){return r.cen});
+  if(pts.length>1){
+    calcTrackLayers.push(L.polyline(pts,{color:'#e67e22',weight:2.5,opacity:.9}).addTo(map));
+    res.forEach(function(r,i){
+      if(!r.cen)return;
+      var isLast=(i===res.length-1);
+      calcTrackLayers.push(L.circleMarker(r.cen,{radius:isLast?6:3.5,
+        color:isLast?'#fff':'#e67e22',fillColor:'#e67e22',fillOpacity:.95,weight:isLast?2:1})
+        .bindTooltip(r.ts.slice(11,16)+' UTC · màx '+(r.max?ALT_LABELS[r.max]:'—'))
+        .addTo(map));
+    });
+  }
+
+  // ── 6. GIF de l'àrea ──
+  setS('Generant GIF…'); setB(55);
+  var k=Math.max(2,Math.min(8,Math.round(440/rw)));
+  var GW=rw*k, GH=rh*k+22;
+  var gc=document.createElement('canvas'); gc.width=GW; gc.height=GH;
+  var gx=gc.getContext('2d'); gx.imageSmoothingEnabled=false;
+  var gifBlob=null;
+  try{
+    var workerUrl=await _getGifWorker();
+    var gif=new GIF({workers:1,quality:10,width:GW,height:GH,workerScript:workerUrl});
+    var framesPNG=[]; // reutilitzats per al ZIP
+    for(var i=0;i<res.length;i++){
+      var r=res[i];
+      gx.fillStyle='#0d1117'; gx.fillRect(0,0,GW,GH);
+      if(r.colImg) gx.drawImage(r.colImg,x0,y0,rw,rh,0,22,GW,GH-22);
+      gx.fillStyle='rgba(0,0,0,.8)'; gx.fillRect(0,0,GW,22);
+      gx.fillStyle='#fff'; gx.font='bold 12px monospace'; gx.textAlign='left';
+      gx.fillText(nomRaw+' · '+r.ts.slice(0,16).replace('T',' ')+' UTC'
+        +(r.max?' · màx '+ALT_LABELS[r.max]:''),6,15);
+      gif.addFrame(gc,{delay:300,copy:true});
+      var blob=await new Promise(function(rs){gc.toBlob(rs,'image/png')});
+      framesPNG.push({nom:nom+'_'+r.ts.slice(0,10).replace(/-/g,'')+'_'+r.ts.slice(11,16).replace(':','')+'.png',blob:blob});
+      setB(55+((i+1)/res.length)*20);
+    }
+    gifBlob=await new Promise(function(rs){gif.on('finished',rs);gif.render();});
+  }catch(e){console.warn('GIF:',e);}
+
+  // ── 7. ZIP ──
+  setS('Empaquetant ZIP…'); setB(80);
+  var csv='timestamp_utc;max_classe;max_km;px_actius;area_km2;centroid_lat;centroid_lon;despl_km;rumb_graus;sector;velocitat_kmh\n';
+  res.forEach(function(r,i){
+    var m=(i>0)?mov[i-1]:null;
+    csv+=[r.ts, r.max||'', r.max?ALT_MAXKM[r.max]:'', r.n||0, r.area||'',
+      r.cen?r.cen[0].toFixed(4):'', r.cen?r.cen[1].toFixed(4):'',
+      m?m.km.toFixed(2):'', m?m.rumb.toFixed(0):'', m?_sector(m.rumb):'',
+      m?m.kmh.toFixed(1):''].join(';')+'\n';
+  });
+  var zipUrl=null;
+  try{
+    var zip=new JSZip();
+    var carpeta=zip.folder(nom);
+    framesPNG.forEach(function(fp){carpeta.file(fp.nom,fp.blob)});
+    carpeta.file(nom+'_serie.csv',csv);
+    var chartBlob=await new Promise(function(rs){ch.toBlob(rs,'image/png')});
+    carpeta.file(nom+'_grafica.png',chartBlob);
+    var heatBlob=await new Promise(function(rs){hm.toBlob(rs,'image/png')});
+    carpeta.file(nom+'_perfil.png',heatBlob);
+    if(gifBlob) carpeta.file(nom+'_animacio.gif',gifBlob);
+    var zBlob=await zip.generateAsync({type:'blob'},function(m){setB(80+m.percent*0.2)});
+    zipUrl=URL.createObjectURL(zBlob);
+  }catch(e){console.warn('ZIP:',e);}
+
+  // ── 8. Resum i resultats ──
+  var vals=res.filter(function(r){return r.max});
+  var maxGlobal=vals.length?Math.max.apply(null,vals.map(function(r){return r.max})):0;
+  var movV=mov.filter(function(m){return m});
+  var resumHTML='<b style="color:#e67e22">'+nomRaw+'</b> · '+res.length+' frames ('+
+    t0.slice(11,16)+'–'+t1.slice(11,16)+' UTC)<br>';
+  if(maxGlobal){
+    var rMax=vals.reduce(function(a,c){return c.max>=a.max?c:a});
+    resumHTML+='⛰ Alçada màxima: <b>'+ALT_LABELS[maxGlobal]+'</b> a les '+rMax.ts.slice(11,16)+' UTC<br>';
+  } else resumHTML+='⚠ Sense dades d\'alçada vàlides en aquest interval (frames antics?)<br>';
+  if(movV.length){
+    var kmTot=movV.reduce(function(s,m){return s+m.km},0);
+    var pIni=res.find(function(r){return r.cen}), pFin=null;
+    for(var i=res.length-1;i>=0;i--){if(res[i].cen){pFin=res[i];break}}
+    if(pIni&&pFin&&pIni!==pFin){
+      var rumbNet=_rumb(pIni.cen,pFin.cen), distNet=_hav(pIni.cen,pFin.cen);
+      var hores=(new Date(pFin.ts)-new Date(pIni.ts))/3600000;
+      resumHTML+='🧭 Moviment net del centroide: <b>'+distNet.toFixed(1)+' km</b> cap al <b>'+
+        _sector(rumbNet)+'</b> ('+rumbNet.toFixed(0)+'°) · velocitat mitjana <b>'+
+        (hores>0?(distNet/hores).toFixed(1):'—')+' km/h</b><br>';
+    }
+    resumHTML+='📏 Recorregut acumulat: '+kmTot.toFixed(1)+' km';
+  }
+  document.getElementById('calcres-titol').textContent='📊 '+nomRaw;
+  document.getElementById('calcres-resum').innerHTML=resumHTML;
+  if(gifBlob){
+    if(calcGifUrl)URL.revokeObjectURL(calcGifUrl);
+    calcGifUrl=URL.createObjectURL(gifBlob);
+    document.getElementById('calcGifPrev').src=calcGifUrl;
+    var gl=document.getElementById('calcGifLink');
+    gl.href=calcGifUrl; gl.download=nom+'_animacio.gif'; gl.style.display='inline-block';
+  }
+  if(zipUrl){
+    if(calcZipUrl)URL.revokeObjectURL(calcZipUrl);
+    calcZipUrl=zipUrl;
+    var zl=document.getElementById('calcZipLink');
+    zl.href=zipUrl; zl.download=nom+'_estudi_'+t0.slice(0,10).replace(/-/g,'')+'.zip';
+    zl.style.display='inline-block';
+  }
+  setB(100);
+  tancarCalcul();
+  document.getElementById('calcres-panel').style.display='block';
+  setStatus('✓ Estudi complet: '+nomRaw);
+}
+</script>
 
 </body>
 </html>
