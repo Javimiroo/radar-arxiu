@@ -24,6 +24,13 @@ try:
 except ImportError:
     print("rasterio no disponible"); sys.exit(1)
 
+try:
+    from scipy import ndimage
+    _SCIPY = True
+except ImportError:
+    _SCIPY = False
+    print("AVIS: scipy no disponible, sense filtre d'interferencies")
+
 # Configuracio
 ROOT      = Path(__file__).parent.parent
 DATA_DIR  = ROOT / "data"
@@ -79,6 +86,32 @@ def array_a_png(arr, colormap, size=(OUT_W, OUT_H)):
     buf = io.BytesIO(); img.save(buf, "PNG", optimize=True)
     return buf.getvalue()
 
+def neteja_interferencies(classes, min_area=2):
+    """Elimina interferencies RF i clutter puntual:
+    - components de <= min_area pixels (pixels aillats)
+    - linies fines llargues (spokes RF radials)
+    - components esqueletics (spokes diagonals, densitat molt baixa)
+    Els ecos reals (taques compactes >= 3 px) es conserven intactes."""
+    if not _SCIPY: return classes
+    lab, nlab = ndimage.label(classes > 0, structure=np.ones((3, 3)))
+    if nlab == 0: return classes
+    objs = ndimage.find_objects(lab)
+    sizes = ndimage.sum(classes > 0, lab, range(1, nlab + 1))
+    treu = np.zeros(nlab + 1, bool)
+    for i, sl in enumerate(objs, start=1):
+        area = sizes[i - 1]
+        h = sl[0].stop - sl[0].start
+        w = sl[1].stop - sl[1].start
+        if area <= min_area:
+            treu[i] = True                       # pixels aillats
+        elif max(h, w) >= 6 and min(h, w) <= 2:
+            treu[i] = True                       # linia fina (spoke RF)
+        elif max(h, w) >= 8 and area / (h * w) < 0.15:
+            treu[i] = True                       # spoke diagonal
+    classes = classes.copy()
+    classes[treu[lab]] = 0
+    return classes
+
 def ts_de_nom_compo(nom):
     import re
     m = re.search(r'(\d{12,14})', nom)
@@ -131,6 +164,7 @@ def arxivar_composit():
         with MemoryFile(dades) as mf:
             with mf.open() as ds:
                 arr, bounds = retall(ds.read(1).astype(np.uint8), ds)
+        arr = neteja_interferencies(arr, min_area=1)
         png = array_a_png(arr, RADAR_RGBA)
         meta = {
             "timestamp_utc": f"{ts[:4]}-{ts[4:6]}-{ts[6:8]}T{ts[8:10]}:{ts[10:12]}:00Z",
@@ -243,6 +277,8 @@ def arxivar_echotop():
 
             data_mask = _mask_echotop(patch)
             alt = _decode_top(patch, data_mask)
+            alt = neteja_interferencies(alt, min_area=2)
+            data_mask = alt > 0
 
             reg_alt  = comp_alt [oy0:oy1, ox0:ox1]
             reg_rgba = comp_rgba[oy0:oy1, ox0:ox1]

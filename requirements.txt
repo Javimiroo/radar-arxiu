@@ -2,3 +2,4 @@ requests
 rasterio
 numpy
 Pillow
+scipy
