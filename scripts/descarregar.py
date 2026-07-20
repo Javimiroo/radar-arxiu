@@ -86,12 +86,28 @@ def array_a_png(arr, colormap, size=(OUT_W, OUT_H)):
     buf = io.BytesIO(); img.save(buf, "PNG", optimize=True)
     return buf.getvalue()
 
-def neteja_interferencies(classes, min_area=2):
+def _rugositat(z, lab, i, sl):
+    """Salt mitja de classe entre pixels veins dins d'un component.
+    Ecos reals: camp suau (<1). Interferencies RF: salts brutals (>1.5)."""
+    comp = (lab[sl] == i)
+    v = z[sl].astype(np.int16)
+    salts = []
+    m_h = comp[:, :-1] & comp[:, 1:]
+    if m_h.any(): salts.append(np.abs(v[:, :-1] - v[:, 1:])[m_h])
+    m_v = comp[:-1, :] & comp[1:, :]
+    if m_v.any(): salts.append(np.abs(v[:-1, :] - v[1:, :])[m_v])
+    if not salts: return 0.0
+    return float(np.concatenate(salts).mean())
+
+def neteja_interferencies(classes, min_area=2, filtre_rugositat=False):
     """Elimina interferencies RF i clutter puntual:
     - components de <= min_area pixels (pixels aillats)
     - linies fines llargues (spokes RF radials)
     - components esqueletics (spokes diagonals, densitat molt baixa)
-    Els ecos reals (taques compactes >= 3 px) es conserven intactes."""
+    - [rugositat] components menuts amb classes barrejades caoticament:
+      un echotop real es un camp suau; la interferencia salta de 2 a 16 km
+      entre pixels veins. Nomes s'aplica a components <= 60 px, aixi les
+      tempestes i pirocumuls reals no es toquen mai."""
     if not _SCIPY: return classes
     lab, nlab = ndimage.label(classes > 0, structure=np.ones((3, 3)))
     if nlab == 0: return classes
@@ -108,6 +124,9 @@ def neteja_interferencies(classes, min_area=2):
             treu[i] = True                       # linia fina (spoke RF)
         elif max(h, w) >= 8 and area / (h * w) < 0.15:
             treu[i] = True                       # spoke diagonal
+        elif filtre_rugositat and area <= 60:
+            if _rugositat(classes, lab, i, sl) >= 1.5:
+                treu[i] = True                   # classes barrejades = RF
     classes = classes.copy()
     classes[treu[lab]] = 0
     return classes
@@ -277,7 +296,7 @@ def arxivar_echotop():
 
             data_mask = _mask_echotop(patch)
             alt = _decode_top(patch, data_mask)
-            alt = neteja_interferencies(alt, min_area=2)
+            alt = neteja_interferencies(alt, min_area=2, filtre_rugositat=True)
             data_mask = alt > 0
 
             reg_alt  = comp_alt [oy0:oy1, ox0:ox1]

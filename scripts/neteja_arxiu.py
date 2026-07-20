@@ -29,7 +29,7 @@ def neteja_echotop():
         if not png_f.exists(): continue
         alt = np.array(PILImage.open(alt_f))
         if alt.max() == 0 or alt.max() > 13: continue   # buit o dades antigues invalides
-        net = neteja_interferencies(alt, min_area=2)
+        net = neteja_interferencies(alt, min_area=2, filtre_rugositat=True)
         treu = (alt > 0) & (net == 0)
         if not treu.any(): continue
         # Reescriu _alt.png
@@ -48,7 +48,7 @@ def neteja_echotop():
             try:
                 meta = json.loads(json_f.read_text())
                 meta["px_actius"] = int((net > 0).sum())
-                meta["neteja"] = "retroactiva_v1"
+                meta["neteja"] = "retroactiva_v2"
                 json_f.write_text(json.dumps(meta, indent=2))
             except Exception: pass
         n_fitxers += 1; n_px += int(treu.sum())
@@ -74,7 +74,7 @@ def neteja_composit():
                 meta = json.loads(json_f.read_text())
                 meta["px_actius"] = int((net > 0).sum())
                 meta["max_val"] = int(net.max())
-                meta["neteja"] = "retroactiva_v1"
+                meta["neteja"] = "retroactiva_v2"
                 json_f.write_text(json.dumps(meta, indent=2))
             except Exception: pass
         n_fitxers += 1; n_px += int(treu.sum())
