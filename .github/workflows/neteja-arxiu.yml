@@ -27,15 +27,24 @@ jobs:
       - name: Neteja retroactiva
         run: python scripts/neteja_arxiu.py
 
-      - name: Commit i push
+      - name: Commit i push (amb reintents)
         run: |
           git config user.name  "radar-bot"
           git config user.email "radar-bot@noreply.github.com"
           git add data/
           if git diff --staged --quiet; then
             echo "Sense canvis."
-          else
-            git commit -m "🧹 Neteja retroactiva d'interferències de l'arxiu"
-            git pull --rebase origin main
-            git push
+            exit 0
           fi
+          git commit -m "🧹 Neteja retroactiva d'interferències de l'arxiu"
+          for i in 1 2 3 4 5 6; do
+            echo "Intent de push $i..."
+            git pull --rebase origin main || { sleep 15; continue; }
+            if git push; then
+              echo "Push OK a l'intent $i"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Push impossible després de 6 intents"
+          exit 1
