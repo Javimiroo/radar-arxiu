@@ -1,0 +1,33 @@
+{
+  "timestamp_utc": "2026-07-20T21:40:00Z",
+  "tipus": "echotop_composit",
+  "radars": [
+    "TJV",
+    "NJR",
+    "FTN",
+    "PDG",
+    "LID",
+    "GLD",
+    "GRM",
+    "SLS",
+    "CLG",
+    "SFT",
+    "SSE",
+    "AHR",
+    "LLM",
+    "LPA",
+    "CCD"
+  ],
+  "bounds": {
+    "lon_min": -9.5,
+    "lat_min": 35.5,
+    "lon_max": 4.5,
+    "lat_max": 44.0
+  },
+  "shape": [
+    850,
+    1400
+  ],
+  "px_actius": 11150,
+  "alt_units": "classe_escala_top_1_13"
+}
