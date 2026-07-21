@@ -38,6 +38,10 @@ ESP_LON   = (-9.5,  4.5)
 ESP_LAT   = (35.5, 44.0)
 OUT_W, OUT_H = 1400, 850
 
+# Radars exclosos del COMPOSIT echotop (massa interferencies).
+# S'arxiven igualment com a individuals per si mai calen.
+RADARS_EXCLOSOS = {"LID"}   # LID = Valladolid/Palencia
+
 HEADERS = {
     "User-Agent": "GRAFRadarBot/1.0",
     "Cache-Control": "no-cache, no-store, must-revalidate",
@@ -299,12 +303,13 @@ def arxivar_echotop():
             alt = neteja_interferencies(alt, min_area=2, filtre_rugositat=True)
             data_mask = alt > 0
 
-            reg_alt  = comp_alt [oy0:oy1, ox0:ox1]
-            reg_rgba = comp_rgba[oy0:oy1, ox0:ox1]
-            upd = data_mask & (alt > reg_alt)
-            reg_alt [upd] = alt[upd]
-            reg_rgba[upd] = patch[upd]
-            reg_rgba[upd, 3] = 255
+            if codi not in RADARS_EXCLOSOS:
+                reg_alt  = comp_alt [oy0:oy1, ox0:ox1]
+                reg_rgba = comp_rgba[oy0:oy1, ox0:ox1]
+                upd = data_mask & (alt > reg_alt)
+                reg_alt [upd] = alt[upd]
+                reg_rgba[upd] = patch[upd]
+                reg_rgba[upd, 3] = 255
 
             dia_dir_rad = DATA_DIR / "echotop" / codi / ts_full[:8]
             nom_rad = f"echotop_{codi}_{ts_full}"
@@ -340,7 +345,7 @@ def arxivar_echotop():
             meta_comp = {
                 "timestamp_utc": f"20{ts[:2]}-{ts[2:4]}-{ts[4:6]}T{ts[6:8]}:{ts[8:10]}:00Z",
                 "tipus": "echotop_composit",
-                "radars": [c for c,_ in membres_ts],
+                "radars": [c for c,_ in membres_ts if c not in RADARS_EXCLOSOS],
                 "bounds": {"lon_min":ESP_LON[0],"lat_min":ESP_LAT[0],
                            "lon_max":ESP_LON[1],"lat_max":ESP_LAT[1]},
                 "shape": [OUT_H, OUT_W], "px_actius": n_act,
