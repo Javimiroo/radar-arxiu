@@ -3,20 +3,19 @@
   "tipus": "echotop_composit",
   "radars": [
     "AHR",
-    "LLM",
-    "LPA",
     "CCD",
-    "TJV",
-    "NJR",
+    "CLG",
     "FTN",
-    "PDG",
-    "LID",
     "GLD",
     "GRM",
-    "SLS",
-    "CLG",
+    "LLM",
+    "LPA",
+    "NJR",
+    "PDG",
     "SFT",
-    "SSE"
+    "SLS",
+    "SSE",
+    "TJV"
   ],
   "bounds": {
     "lon_min": -9.5,
@@ -28,6 +27,9 @@
     850,
     1400
   ],
-  "px_actius": 33868,
-  "alt_units": "0.05km_per_unit"
+  "px_actius": 27208,
+  "alt_units": "0.05km_per_unit",
+  "reconstruit_sense": [
+    "LID"
+  ]
 }

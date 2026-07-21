@@ -14,6 +14,9 @@
     850,
     1400
   ],
-  "px_actius": 1650,
-  "alt_units": "0.05km_per_unit"
+  "px_actius": 974,
+  "alt_units": "0.05km_per_unit",
+  "reconstruit_sense": [
+    "LID"
+  ]
 }

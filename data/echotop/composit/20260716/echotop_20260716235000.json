@@ -2,19 +2,18 @@
   "timestamp_utc": "2026-07-16T23:50:00Z",
   "tipus": "echotop_composit",
   "radars": [
+    "AHR",
+    "CCD",
+    "CLG",
     "FTN",
-    "PDG",
-    "LID",
     "GLD",
     "GRM",
-    "SLS",
-    "CLG",
-    "SFT",
-    "SSE",
-    "AHR",
     "LLM",
     "LPA",
-    "CCD",
+    "PDG",
+    "SFT",
+    "SLS",
+    "SSE",
     "TJV"
   ],
   "bounds": {
@@ -27,7 +26,10 @@
     850,
     1400
   ],
-  "px_actius": 13322,
+  "px_actius": 13052,
   "alt_units": "classe_escala_top_1_13",
-  "neteja": "retroactiva_v2"
+  "neteja": "retroactiva_v2",
+  "reconstruit_sense": [
+    "LID"
+  ]
 }
