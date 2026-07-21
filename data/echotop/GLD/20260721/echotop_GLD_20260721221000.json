@@ -1,0 +1,17 @@
+{
+  "timestamp_utc": "2026-07-21T22:10:00Z",
+  "tipus": "echotop_GLD",
+  "radar": "GLD",
+  "bounds": {
+    "lon_min": -9.5,
+    "lat_min": 35.5,
+    "lon_max": 4.5,
+    "lat_max": 44.0
+  },
+  "shape": [
+    850,
+    1400
+  ],
+  "px_actius": 581,
+  "alt_units": "classe_escala_top_1_13"
+}
