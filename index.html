@@ -503,8 +503,16 @@ async function _getGifWorker(){
   return _gifWorkerUrl;
 }
 
-// Dibuixa les tiles CartoDB com a fons (CORS obert)
-async function _dibuixarFons(ctx,W,H){
+// Fonts de tiles per al fons dels GIF (totes amb CORS obert)
+var FONS_TILES={
+  sat:  function(z,x,y){return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/'+z+'/'+y+'/'+x;},
+  topo: function(z,x,y){return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/'+z+'/'+y+'/'+x;},
+  dark: function(z,x,y){var s=['a','b','c','d'][(Math.abs(x)+Math.abs(y))%4];
+    return 'https://'+s+'.basemaps.cartocdn.com/dark_all/'+z+'/'+x+'/'+y+'.png';}
+};
+
+// Dibuixa les tiles com a fons
+async function _dibuixarFons(ctx,W,H,fons){
   var z=map.getZoom();
   var pb=map.getPixelBounds();
   var pixW=pb.max.x-pb.min.x, pixH=pb.max.y-pb.min.y;
@@ -521,8 +529,7 @@ async function _dibuixarFons(ctx,W,H){
           res();
         };
         img.onerror=res;
-        var s=['a','b','c','d'][(Math.abs(_tx)+Math.abs(_ty))%4];
-        img.src='https://'+s+'.basemaps.cartocdn.com/dark_all/'+z+'/'+_tx+'/'+_ty+'.png';
+        img.src=FONS_TILES[fons||'dark'](z,_tx,_ty);
       }));
     })(tx,ty);
   }
@@ -654,7 +661,7 @@ async function generarGIF(){
 
   // Canvas mida viewport (màx 800px)
   var ms=map.getSize();
-  var sc=Math.min(1,800/ms.x);
+  var sc=Math.min(1,1400/ms.x);
   var W=Math.round(ms.x*sc), H=Math.round(ms.y*sc);
   var canvas=document.createElement('canvas'); canvas.width=W; canvas.height=H;
   var ctx=canvas.getContext('2d');
@@ -663,14 +670,16 @@ async function generarGIF(){
   var workerUrl;
   try{workerUrl=await _getGifWorker();}
   catch(e){alert('Error carregant encoder GIF.');document.getElementById('btnGenGIF').disabled=false;return;}
-  var gif=new GIF({workers:1,quality:10,width:W,height:H,workerScript:workerUrl});
+  var qual=parseInt(document.getElementById('gifQual').value)||1;
+  var gif=new GIF({workers:2,quality:qual,width:W,height:H,workerScript:workerUrl});
 
   // Fons (tiles) — es dibuixa una vegada
   setS('Carregant fons…');
+  var fonsSel=document.getElementById('gifFons').value;
   var bgCanvas=document.createElement('canvas'); bgCanvas.width=W; bgCanvas.height=H;
   var bgCtx=bgCanvas.getContext('2d');
   bgCtx.fillStyle='#0d1117'; bgCtx.fillRect(0,0,W,H);
-  try{await _dibuixarFons(bgCtx,W,H);}catch(e){console.warn('Tiles fons:',e);}
+  try{await _dibuixarFons(bgCtx,W,H,fonsSel);}catch(e){console.warn('Tiles fons:',e);}
 
   // Frames
   setS('Carregant frames (0/'+fSel.length+')…');
@@ -733,6 +742,21 @@ async function generarGIF(){
         style="width:65px;background:#1e1e1e;border:1px solid #333;color:#ccc;padding:4px;border-radius:4px;font-size:11px">
       <span style="color:#555">ms/frame</span>
     </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="color:#888;width:45px;flex-shrink:0">Fons:</label>
+      <select id="gifFons" style="flex:1;background:#1e1e1e;border:1px solid #333;color:#ccc;padding:4px 6px;border-radius:4px;font-size:11px">
+        <option value="sat">Satèl·lit</option>
+        <option value="topo">Topogràfic</option>
+        <option value="dark">Fosc</option>
+      </select>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="color:#888;width:45px;flex-shrink:0">Qualitat:</label>
+      <select id="gifQual" style="flex:1;background:#1e1e1e;border:1px solid #333;color:#ccc;padding:4px 6px;border-radius:4px;font-size:11px">
+        <option value="1">Màxima (més lent)</option>
+        <option value="10">Normal</option>
+      </select>
+    </div>
   </div>
   <div id="gif-progress" style="display:none;margin-bottom:10px">
     <div id="gif-status" style="color:#888;margin-bottom:5px">Carregant…</div>
@@ -771,6 +795,14 @@ async function generarGIF(){
     <div style="display:flex;align-items:center;gap:8px">
       <label style="color:#888;width:55px;flex-shrink:0">Final:</label>
       <select id="calcFinal" style="flex:1;background:#1e1e1e;border:1px solid #333;color:#ccc;padding:4px 6px;border-radius:4px;font-size:11px"></select>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="color:#888;width:55px;flex-shrink:0">Fons:</label>
+      <select id="calcFons" style="flex:1;background:#1e1e1e;border:1px solid #333;color:#ccc;padding:4px 6px;border-radius:4px;font-size:11px">
+        <option value="sat">Satèl·lit</option>
+        <option value="topo">Topogràfic</option>
+        <option value="dark">Fosc</option>
+      </select>
     </div>
   </div>
   <div id="calc-progress" style="display:none;margin-bottom:10px">
@@ -1221,7 +1253,8 @@ async function executarCalcul(){
   bx.fillStyle='#0d1117'; bx.fillRect(0,0,GW,GHm);
   try{
     setS('Carregant fons cartogràfic…');
-    var z=Math.min(12,Math.max(6,Math.ceil(Math.log2(GW*360/((lonE-lonW)*256)))));
+    var calcFonsSel=document.getElementById('calcFons').value;
+    var z=Math.min(15,Math.max(6,Math.ceil(Math.log2(GW*360/((lonE-lonW)*256)))));
     var scW=256*Math.pow(2,z);
     var mpx=function(lon){return (lon+180)/360*scW};
     var mpy=function(lat){var s=Math.sin(lat*Math.PI/180);
@@ -1239,8 +1272,7 @@ async function executarCalcul(){
             bx.drawImage(im,(_tx*256-px0m)*sfx,(_ty*256-py0m)*sfy,256*sfx,256*sfy); rs();
           };
           im.onerror=rs;
-          var sv=['a','b','c','d'][(Math.abs(_tx)+Math.abs(_ty))%4];
-          im.src='https://'+sv+'.basemaps.cartocdn.com/dark_all/'+z+'/'+_tx+'/'+_ty+'.png';
+          im.src=FONS_TILES[calcFonsSel](z,_tx,_ty);
         }));
       })(tx,ty);
     }
@@ -1249,7 +1281,7 @@ async function executarCalcul(){
 
   try{
     var workerUrl=await _getGifWorker();
-    var gif=new GIF({workers:1,quality:10,width:GW,height:GH,workerScript:workerUrl});
+    var gif=new GIF({workers:2,quality:1,width:GW,height:GH,workerScript:workerUrl});
     var framesPNG=[]; // reutilitzats per al ZIP
     for(var i=0;i<res.length;i++){
       var r=res[i];
