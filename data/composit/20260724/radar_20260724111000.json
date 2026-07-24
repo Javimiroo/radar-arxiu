@@ -1,0 +1,16 @@
+{
+  "timestamp_utc": "2026-07-24T11:10:00Z",
+  "tipus": "composit_espanya",
+  "bounds": {
+    "lon_min": -9.50315532094126,
+    "lat_min": 35.50397658167592,
+    "lon_max": 4.479011594010132,
+    "lat_max": 44.00913649416047
+  },
+  "shape": [
+    323,
+    531
+  ],
+  "max_val": 8,
+  "px_actius": 19193
+}
