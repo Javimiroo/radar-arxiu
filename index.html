@@ -8,6 +8,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://unpkg.com/geotiff@2.1.3/dist-browser/geotiff.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',sans-serif;display:flex;flex-direction:column;
@@ -98,6 +99,7 @@ select{background:#1e1e1e;border:1px solid #333;color:#ccc;padding:5px 7px;
   <button class="btn" id="bCalc" onclick="iniciarCalcul()" title="Estudi d'àrea: evolució ECHOTOP d'un incendi" style="display:none">📊 Càlcul</button>
   <button class="btn" onclick="toggleLlegenda()">🎨</button>
   <button class="btn" onclick="obrirGIF()">🎬 GIF</button>
+  <button class="btn" onclick="exportarGeoTIFF()" title="Exporta el frame actual com a GeoTIFF (EPSG:4326)">🗺 GeoTIFF</button>
   <span id="status">Carregant…</span>
 </div>
 
@@ -491,6 +493,78 @@ document.addEventListener('keydown',e=>{
 });
 
 carregarManifest();
+
+// ── Exportació GeoTIFF ──────────────────────────────────────────────────────
+function _parseNpy(buf){
+  var dv=new DataView(buf);
+  if(dv.getUint8(0)!==0x93) throw new Error('npy invàlid');
+  var hlen=dv.getUint16(8,true);
+  var header=new TextDecoder().decode(new Uint8Array(buf,10,hlen));
+  var m=header.match(/'shape':\s*\((\d+),\s*(\d+)\)/);
+  if(!m) throw new Error('shape npy no trobada');
+  var h=parseInt(m[1]), w=parseInt(m[2]);
+  if(header.indexOf('|u1')<0 && header.indexOf('uint8')<0)
+    throw new Error('npy no és uint8: '+header);
+  return {data:new Uint8Array(buf,10+hlen,h*w), h:h, w:w};
+}
+
+async function _escriuGeoTIFF(vals,w,h,lonMin,latMax,dx,dy,nomFitxer){
+  var ab=await GeoTIFF.writeArrayBuffer(Array.from(vals),{
+    width:w, height:h,
+    ModelPixelScale:[dx,dy,0],
+    ModelTiepoint:[0,0,0,lonMin,latMax,0],
+    GTModelTypeGeoKey:2,      // geogràfic
+    GTRasterTypeGeoKey:1,     // RasterPixelIsArea
+    GeographicTypeGeoKey:4326,
+    GeogCitationGeoKey:'WGS 84',
+  });
+  var blob=new Blob([ab],{type:'image/tiff'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=nomFitxer;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){URL.revokeObjectURL(a.href)},5000);
+}
+
+async function exportarGeoTIFF(){
+  if(!frames.length){alert('No hi ha frames carregats.');return;}
+  var f=frames[cur];
+  var tsNom=f.ts.replace(/[-:TZ]/g,'').slice(0,12);
+  setStatus('Generant GeoTIFF…');
+  try{
+    if(curProd==='composit'){
+      // Valors reals (classes 1-12) del NPZ a resolució nativa
+      var resp=await fetch(f.url.replace(/\.png$/,'.npz')+'?_=1');
+      if(!resp.ok) throw new Error('NPZ no disponible');
+      var zip=await JSZip.loadAsync(await resp.arrayBuffer());
+      var nom=Object.keys(zip.files).find(function(n){return n.endsWith('.npy')});
+      var npy=_parseNpy(await zip.files[nom].async('arraybuffer'));
+      var meta=await (await fetch(f.url.replace(/\.png$/,'.json')+'?_=1')).json();
+      var b=meta.bounds;
+      await _escriuGeoTIFF(npy.data,npy.w,npy.h,
+        b.lon_min,b.lat_max,
+        (b.lon_max-b.lon_min)/npy.w,(b.lat_max-b.lat_min)/npy.h,
+        'radar_'+tsNom+'.tif');
+      setStatus('✓ GeoTIFF radar (classes 1-12: 1=5-15dBZ … 12=>65dBZ)');
+    } else {
+      // ECHOTOP: classes 1-13 del _alt.png (graella 0.01°)
+      var img=await _carregaImg(f.url.replace(/\.png$/,'_alt.png')+'?_=1');
+      if(!img) throw new Error('Sense dades d\'alçada (frame antic)');
+      var c=document.createElement('canvas'); c.width=1400; c.height=850;
+      var cx2=c.getContext('2d'); cx2.imageSmoothingEnabled=false;
+      cx2.drawImage(img,0,0);
+      var d=cx2.getImageData(0,0,1400,850).data;
+      var vals=new Uint8Array(1400*850);
+      for(var i=0;i<vals.length;i++) vals[i]=d[i*4];
+      await _escriuGeoTIFF(vals,1400,850,-9.5,44.0,0.01,0.01,
+        'echotop_'+(curProd==='radar_ind'&&curRadar?curRadar+'_':'')+tsNom+'.tif');
+      setStatus('✓ GeoTIFF echotop (classes 1-13: 1=1-2km … 13=>20km)');
+    }
+  }catch(e){
+    alert('GeoTIFF: '+e.message);
+    setStatus('✗ Error GeoTIFF');
+  }
+}
 
 // ── GIF Export ──────────────────────────────────────────────────────────────
 var _gifWorkerUrl=null;
