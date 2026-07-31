@@ -99,7 +99,7 @@ select{background:#1e1e1e;border:1px solid #333;color:#ccc;padding:5px 7px;
   <button class="btn" id="bCalc" onclick="iniciarCalcul()" title="Estudi d'àrea: evolució ECHOTOP d'un incendi" style="display:none">📊 Càlcul</button>
   <button class="btn" onclick="toggleLlegenda()">🎨</button>
   <button class="btn" onclick="obrirGIF()">🎬 GIF</button>
-  <button class="btn" onclick="exportarGeoTIFF()" title="Exporta el frame actual com a GeoTIFF (EPSG:4326)">🗺 GeoTIFF</button>
+  <button class="btn" onclick="obrirGeoTIFF()" title="Exporta frames com a GeoTIFF (EPSG:4326)">🗺 GeoTIFF</button>
   <span id="status">Carregant…</span>
 </div>
 
@@ -508,8 +508,8 @@ function _parseNpy(buf){
   return {data:new Uint8Array(buf,10+hlen,h*w), h:h, w:w};
 }
 
-async function _escriuGeoTIFF(vals,w,h,lonMin,latMax,dx,dy,nomFitxer){
-  var ab=await GeoTIFF.writeArrayBuffer(Array.from(vals),{
+async function _geoTiffAB(vals,w,h,lonMin,latMax,dx,dy){
+  return await GeoTIFF.writeArrayBuffer(Array.from(vals),{
     width:w, height:h,
     ModelPixelScale:[dx,dy,0],
     ModelTiepoint:[0,0,0,lonMin,latMax,0],
@@ -518,52 +518,98 @@ async function _escriuGeoTIFF(vals,w,h,lonMin,latMax,dx,dy,nomFitxer){
     GeographicTypeGeoKey:4326,
     GeogCitationGeoKey:'WGS 84',
   });
-  var blob=new Blob([ab],{type:'image/tiff'});
+}
+function _descarregaBlob(blob,nomFitxer){
   var a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   a.download=nomFitxer;
   document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(function(){URL.revokeObjectURL(a.href)},5000);
+  setTimeout(function(){URL.revokeObjectURL(a.href)},8000);
 }
 
-async function exportarGeoTIFF(){
-  if(!frames.length){alert('No hi ha frames carregats.');return;}
-  var f=frames[cur];
+// GeoTIFF d'un frame concret; retorna {ab,nom} o llança error
+async function _frameGeoTIFF(f){
   var tsNom=f.ts.replace(/[-:TZ]/g,'').slice(0,12);
-  setStatus('Generant GeoTIFF…');
-  try{
-    if(curProd==='composit'){
-      // Valors reals (classes 1-12) del NPZ a resolució nativa
-      var resp=await fetch(f.url.replace(/\.png$/,'.npz')+'?_=1');
-      if(!resp.ok) throw new Error('NPZ no disponible');
-      var zip=await JSZip.loadAsync(await resp.arrayBuffer());
-      var nom=Object.keys(zip.files).find(function(n){return n.endsWith('.npy')});
-      var npy=_parseNpy(await zip.files[nom].async('arraybuffer'));
-      var meta=await (await fetch(f.url.replace(/\.png$/,'.json')+'?_=1')).json();
-      var b=meta.bounds;
-      await _escriuGeoTIFF(npy.data,npy.w,npy.h,
-        b.lon_min,b.lat_max,
-        (b.lon_max-b.lon_min)/npy.w,(b.lat_max-b.lat_min)/npy.h,
-        'radar_'+tsNom+'.tif');
-      setStatus('✓ GeoTIFF radar (classes 1-12: 1=5-15dBZ … 12=>65dBZ)');
-    } else {
-      // ECHOTOP: classes 1-13 del _alt.png (graella 0.01°)
-      var img=await _carregaImg(f.url.replace(/\.png$/,'_alt.png')+'?_=1');
-      if(!img) throw new Error('Sense dades d\'alçada (frame antic)');
-      var c=document.createElement('canvas'); c.width=1400; c.height=850;
-      var cx2=c.getContext('2d'); cx2.imageSmoothingEnabled=false;
-      cx2.drawImage(img,0,0);
-      var d=cx2.getImageData(0,0,1400,850).data;
-      var vals=new Uint8Array(1400*850);
-      for(var i=0;i<vals.length;i++) vals[i]=d[i*4];
-      await _escriuGeoTIFF(vals,1400,850,-9.5,44.0,0.01,0.01,
-        'echotop_'+(curProd==='radar_ind'&&curRadar?curRadar+'_':'')+tsNom+'.tif');
-      setStatus('✓ GeoTIFF echotop (classes 1-13: 1=1-2km … 13=>20km)');
-    }
-  }catch(e){
-    alert('GeoTIFF: '+e.message);
-    setStatus('✗ Error GeoTIFF');
+  if(curProd==='composit'){
+    var resp=await fetch(f.url.replace(/\.png$/,'.npz')+'?_=1');
+    if(!resp.ok) throw new Error('NPZ no disponible');
+    var zip=await JSZip.loadAsync(await resp.arrayBuffer());
+    var nomN=Object.keys(zip.files).find(function(n){return n.endsWith('.npy')});
+    var npy=_parseNpy(await zip.files[nomN].async('arraybuffer'));
+    var meta=await (await fetch(f.url.replace(/\.png$/,'.json')+'?_=1')).json();
+    var b=meta.bounds;
+    var ab=await _geoTiffAB(npy.data,npy.w,npy.h,b.lon_min,b.lat_max,
+      (b.lon_max-b.lon_min)/npy.w,(b.lat_max-b.lat_min)/npy.h);
+    return {ab:ab,nom:'radar_'+tsNom+'.tif'};
+  } else {
+    var img=await _carregaImg(f.url.replace(/\.png$/,'_alt.png')+'?_=1');
+    if(!img) throw new Error('sense dades d\'alçada');
+    var c=document.createElement('canvas'); c.width=1400; c.height=850;
+    var cx2=c.getContext('2d'); cx2.imageSmoothingEnabled=false;
+    cx2.drawImage(img,0,0);
+    var d=cx2.getImageData(0,0,1400,850).data;
+    var vals=new Uint8Array(1400*850);
+    for(var i=0;i<vals.length;i++) vals[i]=d[i*4];
+    var ab=await _geoTiffAB(vals,1400,850,-9.5,44.0,0.01,0.01);
+    return {ab:ab,nom:'echotop_'+(curProd==='radar_ind'&&curRadar?curRadar+'_':'')+tsNom+'.tif'};
   }
+}
+
+function obrirGeoTIFF(){
+  if(!frames.length){alert('No hi ha frames carregats.');return;}
+  var fmt=function(ts){return ts.replace('T',' ').replace(':00Z',' UTC')};
+  var opts=frames.map(function(f){return '<option value="'+f.ts+'">'+fmt(f.ts)+'</option>'}).join('');
+  document.getElementById('geoInici').innerHTML=opts;
+  document.getElementById('geoFinal').innerHTML=opts;
+  document.getElementById('geoInici').selectedIndex=cur;
+  document.getElementById('geoFinal').selectedIndex=cur;
+  document.getElementById('geo-progress').style.display='none';
+  document.getElementById('btnGeo').disabled=false;
+  document.getElementById('geo-backdrop').style.display='block';
+  document.getElementById('geo-panel').style.display='block';
+}
+function tancarGeoTIFF(){
+  document.getElementById('geo-backdrop').style.display='none';
+  document.getElementById('geo-panel').style.display='none';
+}
+
+async function exportarGeoTIFFRang(){
+  var t0=document.getElementById('geoInici').value;
+  var t1=document.getElementById('geoFinal').value;
+  var fSel=frames.filter(function(f){return f.ts>=t0&&f.ts<=t1});
+  if(!fSel.length){alert('Cap frame en el rang.');return;}
+  if(fSel.length>300){alert('Massa frames ('+fSel.length+'). Redueix el rang.');return;}
+  var setS=function(s){document.getElementById('geo-status').textContent=s};
+  var setB=function(p){document.getElementById('geo-bar').style.width=p+'%'};
+  document.getElementById('geo-progress').style.display='block';
+  document.getElementById('btnGeo').disabled=true;
+  var ok=0, ko=0;
+  try{
+    if(fSel.length===1){
+      setS('Generant GeoTIFF…');
+      var r=await _frameGeoTIFF(fSel[0]);
+      _descarregaBlob(new Blob([r.ab],{type:'image/tiff'}),r.nom);
+      ok=1; setB(100);
+    } else {
+      var zip=new JSZip();
+      for(var i=0;i<fSel.length;i++){
+        setS('GeoTIFF '+(i+1)+'/'+fSel.length+'…'); setB((i+1)/fSel.length*90);
+        try{
+          var r2=await _frameGeoTIFF(fSel[i]);
+          zip.file(r2.nom,r2.ab); ok++;
+        }catch(e){ko++;}
+      }
+      if(!ok) throw new Error('cap frame exportable en este rang');
+      setS('Comprimint ZIP…');
+      var blob=await zip.generateAsync({type:'blob'},function(m){setB(90+m.percent*0.1)});
+      var pref=(curProd==='composit'?'radar':'echotop');
+      _descarregaBlob(blob,pref+'_geotiff_'+t0.slice(0,10).replace(/-/g,'')+'.zip');
+    }
+    setS('✓ '+ok+' exportats'+(ko?' · '+ko+' sense dades':''));
+  }catch(e){
+    setS('✗ '+e.message);
+  }
+  document.getElementById('btnGeo').disabled=false;
 }
 
 // ── GIF Export ──────────────────────────────────────────────────────────────
@@ -848,6 +894,38 @@ async function generarGIF(){
   </div>
 </div>
 
+<!-- GeoTIFF panel -->
+<div id="geo-backdrop" onclick="tancarGeoTIFF()"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:2900"></div>
+<div id="geo-panel"
+  style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:#111;border:1px solid #2a2a2a;border-radius:10px;padding:18px;
+  z-index:3000;min-width:300px;font-size:12px">
+  <div style="color:#5dade2;font-weight:bold;font-size:13px;margin-bottom:12px">🗺 Exportar GeoTIFF (EPSG:4326)</div>
+  <div style="display:grid;gap:8px;margin-bottom:14px">
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="color:#888;width:45px;flex-shrink:0">Inici:</label>
+      <select id="geoInici" style="flex:1;background:#1e1e1e;border:1px solid #333;color:#ccc;padding:4px 6px;border-radius:4px;font-size:11px"></select>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="color:#888;width:45px;flex-shrink:0">Final:</label>
+      <select id="geoFinal" style="flex:1;background:#1e1e1e;border:1px solid #333;color:#ccc;padding:4px 6px;border-radius:4px;font-size:11px"></select>
+    </div>
+    <div style="color:#555;font-size:10px">1 frame → .tif directe · diversos → ZIP amb un .tif per pas de 10 min<br>
+    Valors: classes AEMET (radar 1-12 dBZ · echotop 1-13 km) · 0 = sense dades</div>
+  </div>
+  <div id="geo-progress" style="display:none;margin-bottom:10px">
+    <div id="geo-status" style="color:#888;margin-bottom:5px">Preparant…</div>
+    <div style="background:#222;border-radius:3px;height:4px">
+      <div id="geo-bar" style="background:#5dade2;height:100%;width:0%;border-radius:3px;transition:width .15s"></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;justify-content:flex-end">
+    <button class="btn" onclick="tancarGeoTIFF()">Cancel·lar</button>
+    <button class="btn sel" id="btnGeo" onclick="exportarGeoTIFFRang()">▶ Exportar</button>
+  </div>
+</div>
+
 <!-- CÀLCUL: panell configuració -->
 <div id="calc-backdrop" onclick="tancarCalcul()"
   style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:2900"></div>
@@ -921,6 +999,7 @@ async function generarGIF(){
   <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
     <a id="calcZipLink" class="btn sel" style="display:none;text-decoration:none">⬇ Descarregar-ho tot (ZIP)</a>
     <a id="calcGifLink" class="btn" style="display:none;text-decoration:none">⬇ Només GIF</a>
+    <a id="calcGeoLink" class="btn" style="display:none;text-decoration:none">⬇ Només GeoTIFF</a>
   </div>
   <div style="color:#555;font-size:10px;margin-top:8px">
     El ZIP conté: 1 PNG de l'àrea per cada pas de 10 min (nom_data_hora), sèrie CSV, gràfica i GIF.
@@ -937,7 +1016,7 @@ var ALT_COLORS={1:'#0000fc',2:'#0082ff',3:'#00beff',4:'#00ffff',5:'#438323',
 var ALT_ETIQ={1:'2',2:'3',3:'4',4:'5',5:'6',6:'7',7:'8',8:'10',9:'12',10:'14',11:'16',12:'20',13:'20+'};
 
 var calcSelecting=false, calcP0=null, calcLayer=null, calcRect=null;
-var calcTrackLayers=[], calcZipUrl=null, calcGifUrl=null;
+var calcTrackLayers=[], calcZipUrl=null, calcGifUrl=null, calcGeoUrl=null;
 
 function iniciarCalcul(){
   if(!frames.length){alert('No hi ha frames ECHOTOP carregats per a aquesta data.');return;}
@@ -1205,9 +1284,11 @@ async function executarCalcul(){
       xA.drawImage(altImg,x0,y0,rw,rh,0,0,rw,rh);
       var d=xA.getImageData(0,0,rw,rh).data;
       var sx=0,sy=0;
+      r.cls=new Uint8Array(rw*rh);
       for(var p=0;p<rw*rh;p++){
         var v=d[p*4];
         if(v>=1&&v<=13){
+          r.cls[p]=v;
           r.counts[v]=(r.counts[v]||0)+1; r.n++;
           sx+=p%rw; sy+=Math.floor(p/rw);
           if(v>r.max)r.max=v;
@@ -1397,6 +1478,18 @@ async function executarCalcul(){
     var zip=new JSZip();
     var carpeta=zip.folder(nom);
     framesPNG.forEach(function(fp){carpeta.file(fp.nom,fp.blob)});
+    // GeoTIFFs del retall (classes echotop 1-13, EPSG:4326)
+    var geoZip=new JSZip(); var nGeo=0;
+    var carpetaGeo=carpeta.folder('geotiff');
+    for(var gi=0;gi<res.length;gi++){
+      var rG=res[gi];
+      if(!rG.cls) continue;
+      var abG=await _geoTiffAB(rG.cls,rw,rh,lonW,latN,0.01,0.01);
+      var nomT=nom+'_'+rG.ts.slice(0,10).replace(/-/g,'')+'_'+rG.ts.slice(11,16).replace(':','')+'.tif';
+      carpetaGeo.file(nomT,abG);
+      geoZip.file(nomT,abG);
+      nGeo++;
+    }
     carpeta.file(nom+'_serie.csv',csv);
     var chartBlob=await new Promise(function(rs){ch.toBlob(rs,'image/png')});
     carpeta.file(nom+'_grafica.png',chartBlob);
@@ -1410,6 +1503,11 @@ async function executarCalcul(){
     if(gifBlob) carpeta.file(nom+'_animacio.gif',gifBlob);
     var zBlob=await zip.generateAsync({type:'blob'},function(m){setB(80+m.percent*0.2)});
     zipUrl=URL.createObjectURL(zBlob);
+    if(nGeo>0){
+      var gzBlob=await geoZip.generateAsync({type:'blob'});
+      if(calcGeoUrl)URL.revokeObjectURL(calcGeoUrl);
+      calcGeoUrl=URL.createObjectURL(gzBlob);
+    }
   }catch(e){console.warn('ZIP:',e);}
 
   // ── 8. Resum i resultats ──
@@ -1451,6 +1549,11 @@ async function executarCalcul(){
     zl.href=zipUrl; zl.download=nom+'_estudi_'+t0.slice(0,10).replace(/-/g,'')+'.zip';
     zl.style.display='inline-block';
   }
+  var geoL=document.getElementById('calcGeoLink');
+  if(calcGeoUrl){
+    geoL.href=calcGeoUrl; geoL.download=nom+'_geotiff.zip';
+    geoL.style.display='inline-block';
+  } else geoL.style.display='none';
   setB(100);
   tancarCalcul();
   document.getElementById('calcres-panel').style.display='block';
