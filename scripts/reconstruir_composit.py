@@ -36,6 +36,7 @@ def graella_dist(codi):
 
 ROOT = Path(__file__).parent.parent
 ECHO = ROOT / "data" / "echotop"
+REGLA = "radar_mes_proxim+cap_classe_rang"   # versio actual; frames amb esta marca es salten
 
 def reconstruir():
     n_fets = n_skip = 0
@@ -45,6 +46,14 @@ def reconstruir():
         if comp_png.name.endswith("_alt.png"): continue
         ts = comp_png.stem.replace("echotop_", "")
         dia = ts[:8]
+
+        # Resumible: salta els frames ja reconstruits amb la regla actual
+        json_f0 = comp_png.with_suffix(".json")
+        if json_f0.exists():
+            try:
+                if json.loads(json_f0.read_text()).get("composit_regla") == REGLA:
+                    continue
+            except Exception: pass
 
         comp_alt  = np.zeros((OUT_H, OUT_W), np.uint8)
         comp_rgba = np.zeros((OUT_H, OUT_W, 4), np.uint8)
@@ -104,7 +113,7 @@ def reconstruir():
                 meta["px_actius"] = int((comp_alt > 0).sum())
                 meta["radars"] = radars
                 meta["reconstruit_sense"] = sorted(RADARS_EXCLOSOS)
-                meta["composit_regla"] = "radar_mes_proxim+cap_classe_rang"
+                meta["composit_regla"] = REGLA
                 meta["dist_units"] = "km (uint8; 0=sense dades, 254=max)"
                 json_f.write_text(json.dumps(meta, indent=2))
             except Exception: pass
