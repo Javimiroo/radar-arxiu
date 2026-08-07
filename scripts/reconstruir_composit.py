@@ -16,7 +16,23 @@ from PIL import Image as PILImage
 
 sys.path.insert(0, str(Path(__file__).parent))
 from descarregar import (neteja_interferencies, _decode_top,
-                         RADARS_EXCLOSOS, OUT_W, OUT_H)
+                         RADARS_EXCLOSOS, RADAR_SITES, OUT_W, OUT_H)
+
+_DGRIDS = {}
+def graella_dist(codi):
+    """Distancia (km) de cada pixel del domini al radar 'codi' (amb cache)."""
+    if codi in _DGRIDS: return _DGRIDS[codi]
+    site = RADAR_SITES.get(codi)
+    if site is None:
+        g = np.full((OUT_H, OUT_W), 400.0, np.float32)  # desconegut: minima prioritat
+    else:
+        lats = 44.0 - (np.arange(OUT_H) + 0.5) / 100.0
+        lons = -9.5 + (np.arange(OUT_W) + 0.5) / 100.0
+        dy = (lats - site[0]) * 110.57
+        dx = (lons[None, :] - site[1]) * 111.32 * np.cos(np.radians(lats))[:, None]
+        g = np.sqrt(dx ** 2 + dy[:, None] ** 2).astype(np.float32)
+    _DGRIDS[codi] = g
+    return g
 
 ROOT = Path(__file__).parent.parent
 ECHO = ROOT / "data" / "echotop"
@@ -32,6 +48,7 @@ def reconstruir():
 
         comp_alt  = np.zeros((OUT_H, OUT_W), np.uint8)
         comp_rgba = np.zeros((OUT_H, OUT_W, 4), np.uint8)
+        comp_dist = np.full((OUT_H, OUT_W), np.inf, np.float32)
         radars, trobat = [], False
 
         for rd in radar_dirs:
@@ -47,10 +64,13 @@ def reconstruir():
             cls = _decode_top(rgba, mask)
             cls = neteja_interferencies(cls, min_area=2, filtre_rugositat=True)
             m = cls > 0
-            upd = m & (cls > comp_alt)
+            # Regla de proximitat: guanya el radar amb dades mes proxim
+            dg = graella_dist(rd.name)
+            upd = m & (dg < comp_dist)
             comp_alt[upd]  = cls[upd]
             comp_rgba[upd] = rgba[upd]
             comp_rgba[upd, 3] = 255
+            comp_dist[upd] = dg[upd]
 
         if not trobat:
             n_skip += 1
@@ -63,6 +83,11 @@ def reconstruir():
         buf = io.BytesIO()
         PILImage.fromarray(comp_alt, "L").save(buf, "PNG", optimize=True)
         comp_png.with_name(comp_png.stem + "_alt.png").write_bytes(buf.getvalue())
+        dist_u8 = np.where(np.isfinite(comp_dist),
+                           np.clip(np.rint(comp_dist), 1, 254), 0).astype(np.uint8)
+        buf = io.BytesIO()
+        PILImage.fromarray(dist_u8, "L").save(buf, "PNG", optimize=True)
+        comp_png.with_name(comp_png.stem + "_dist.png").write_bytes(buf.getvalue())
 
         json_f = comp_png.with_suffix(".json")
         if json_f.exists():
@@ -71,6 +96,8 @@ def reconstruir():
                 meta["px_actius"] = int((comp_alt > 0).sum())
                 meta["radars"] = radars
                 meta["reconstruit_sense"] = sorted(RADARS_EXCLOSOS)
+                meta["composit_regla"] = "radar_mes_proxim"
+                meta["dist_units"] = "km (uint8; 0=sense dades, 254=max)"
                 json_f.write_text(json.dumps(meta, indent=2))
             except Exception: pass
         n_fets += 1

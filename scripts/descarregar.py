@@ -42,6 +42,29 @@ OUT_W, OUT_H = 1400, 850
 # S'arxiven igualment com a individuals per si mai calen.
 RADARS_EXCLOSOS = {"LID"}   # LID = Valladolid/Palencia
 
+# Posicio (lat, lon) de cada radar = centre del seu GeoTIFF de 480 km.
+# S'usa per al composit per proximitat i per a la reconstruccio retroactiva.
+RADAR_SITES = {
+    "AHR": (36.60, -4.66), "ALM": (36.82, -2.08), "AMG": (38.93, -3.75),
+    "BAD": (39.41, -6.29), "BAR": (41.39,  1.89), "CCD": (43.15, -8.53),
+    "CLG": (37.67, -6.33), "COR": (43.15, -8.53), "FTN": (38.25, -1.19),
+    "GLD": (41.39,  1.89), "GRM": (40.99, -6.48), "LID": (41.98, -4.60),
+    "LLM": (39.36,  2.78), "LPA": (28.13, -16.19),"MAD": (40.16, -3.71),
+    "MAL": (36.60, -4.66), "MUR": (38.25, -1.19), "NJR": (36.82, -2.08),
+    "PDG": (41.72, -0.55), "PMA": (39.36,  2.78), "SAN": (43.44, -6.30),
+    "SEV": (37.67, -6.33), "SFT": (39.41, -6.29), "SLS": (43.44, -6.30),
+    "SSE": (43.39, -2.84), "TJV": (40.16, -3.71), "VAL": (39.16, -0.26),
+    "ZAR": (41.72, -0.55),
+}
+
+def _graella_dist(site_lat, site_lon, oy0, oy1, ox0, ox1):
+    """Distancia (km) de cada pixel de la regio a la posicio del radar."""
+    lats = ESP_LAT[1] - (np.arange(oy0, oy1) + 0.5) / 100.0
+    lons = ESP_LON[0] + (np.arange(ox0, ox1) + 0.5) / 100.0
+    dy = (lats - site_lat) * 110.57
+    dx = (lons[None, :] - site_lon) * 111.32 * np.cos(np.radians(lats))[:, None]
+    return np.sqrt(dx ** 2 + dy[:, None] ** 2).astype(np.float32)
+
 HEADERS = {
     "User-Agent": "GRAFRadarBot/1.0",
     "Cache-Control": "no-cache, no-store, must-revalidate",
@@ -286,6 +309,7 @@ def arxivar_echotop():
 
         comp_alt  = np.zeros((OUT_H, OUT_W), dtype=np.uint8)
         comp_rgba = np.zeros((OUT_H, OUT_W, 4), dtype=np.uint8)
+        comp_dist = np.full((OUT_H, OUT_W), np.inf, dtype=np.float32)
 
         for codi, membre in membres_ts:
             dades = tf.extractfile(membre).read()
@@ -304,12 +328,21 @@ def arxivar_echotop():
             data_mask = alt > 0
 
             if codi not in RADARS_EXCLOSOS:
+                # COMPOSIT PER PROXIMITAT: cada pixel pren el radar amb dades
+                # mes proxim (el llunya sobreestima el top per eixamplament
+                # del feix; el proxim mesura millor). Abans era max(), que
+                # sistematicament premiava el radar esbiaixat.
+                site_lat = (b.top + b.bottom) / 2.0
+                site_lon = (b.left + b.right) / 2.0
+                dgrid = _graella_dist(site_lat, site_lon, oy0, oy1, ox0, ox1)
                 reg_alt  = comp_alt [oy0:oy1, ox0:ox1]
                 reg_rgba = comp_rgba[oy0:oy1, ox0:ox1]
-                upd = data_mask & (alt > reg_alt)
+                reg_dist = comp_dist[oy0:oy1, ox0:ox1]
+                upd = data_mask & (dgrid < reg_dist)
                 reg_alt [upd] = alt[upd]
                 reg_rgba[upd] = patch[upd]
                 reg_rgba[upd, 3] = 255
+                reg_dist[upd] = dgrid[upd]
 
             dia_dir_rad = DATA_DIR / "echotop" / codi / ts_full[:8]
             nom_rad = f"echotop_{codi}_{ts_full}"
@@ -350,16 +383,24 @@ def arxivar_echotop():
                            "lon_max":ESP_LON[1],"lat_max":ESP_LAT[1]},
                 "shape": [OUT_H, OUT_W], "px_actius": n_act,
                 "alt_units": "classe_escala_top_1_13",
+                "composit_regla": "radar_mes_proxim",
+                "dist_units": "km (uint8; 0=sense dades, 254=max)",
             }
             buf = io.BytesIO()
             PILImage.fromarray(comp_rgba, "RGBA").save(buf, "PNG", optimize=True)
             desa_frame(dia_dir_comp, nom_comp,
                        np.zeros((1,1), dtype=np.int16), meta_comp, buf.getvalue(), "echotop")
-            # Desa mapa d'alçades com a PNG greyscale (1 unitat = 50m)
+            # Desa mapa d'alçades (classes 1-13)
             buf_alt = io.BytesIO()
             PILImage.fromarray(comp_alt, "L").save(buf_alt, "PNG", optimize=True)
             dia_dir_comp.mkdir(parents=True, exist_ok=True)
             (dia_dir_comp / f"{nom_comp}_alt.png").write_bytes(buf_alt.getvalue())
+            # Desa distancia al radar contribuent (km, uint8)
+            dist_u8 = np.where(np.isfinite(comp_dist),
+                               np.clip(np.rint(comp_dist), 1, 254), 0).astype(np.uint8)
+            buf_d = io.BytesIO()
+            PILImage.fromarray(dist_u8, "L").save(buf_d, "PNG", optimize=True)
+            (dia_dir_comp / f"{nom_comp}_dist.png").write_bytes(buf_d.getvalue())
 
 if __name__ == "__main__":
     print(f"Inici: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC")
