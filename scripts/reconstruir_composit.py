@@ -36,7 +36,7 @@ def graella_dist(codi):
 
 ROOT = Path(__file__).parent.parent
 ECHO = ROOT / "data" / "echotop"
-REGLA = "radar_mes_proxim+cap_classe_rang"   # versio actual; frames amb esta marca es salten
+REGLA = "proxim+cap_v2+fusio_max1"   # versio actual; frames amb esta marca es salten
 
 def reconstruir():
     n_fets = n_skip = 0
@@ -58,6 +58,8 @@ def reconstruir():
         comp_alt  = np.zeros((OUT_H, OUT_W), np.uint8)
         comp_rgba = np.zeros((OUT_H, OUT_W, 4), np.uint8)
         comp_dist = np.full((OUT_H, OUT_W), np.inf, np.float32)
+        comp_altM = np.zeros((OUT_H, OUT_W), np.uint8)
+        comp_rgbM = np.zeros((OUT_H, OUT_W, 4), np.uint8)
         radars, trobat = [], False
 
         for rd in radar_dirs:
@@ -88,11 +90,21 @@ def reconstruir():
             comp_rgba[upd] = rgba[upd]
             comp_rgba[upd, 3] = 255
             comp_dist[upd] = dg[upd]
+            # Pista max()
+            updM = m & (cls > comp_altM)
+            comp_altM[updM] = cls[updM]
+            comp_rgbM[updM] = rgba[updM]
+            comp_rgbM[updM, 3] = 255
 
         if not trobat:
             n_skip += 1
             print(f"  SKIP {comp_png.name}: cap frame individual")
             continue
+
+        # Fusio: max() quan discrepa <=1 classe del proxim; proxim si no
+        fusio = comp_altM.astype(np.int16) - comp_alt.astype(np.int16) <= 1
+        comp_alt  = np.where(fusio, comp_altM, comp_alt)
+        comp_rgba = np.where(fusio[..., None], comp_rgbM, comp_rgba)
 
         buf = io.BytesIO()
         PILImage.fromarray(comp_rgba, "RGBA").save(buf, "PNG", optimize=True)
