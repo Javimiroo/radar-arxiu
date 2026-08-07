@@ -20,6 +20,6 @@
   "reconstruit_sense": [
     "LID"
   ],
-  "composit_regla": "radar_mes_proxim",
+  "composit_regla": "radar_mes_proxim+cap_classe_rang",
   "dist_units": "km (uint8; 0=sense dades, 254=max)"
 }
