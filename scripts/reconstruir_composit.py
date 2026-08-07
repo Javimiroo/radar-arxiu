@@ -15,8 +15,8 @@ import numpy as np
 from PIL import Image as PILImage
 
 sys.path.insert(0, str(Path(__file__).parent))
-from descarregar import (neteja_interferencies, _decode_top,
-                         RADARS_EXCLOSOS, RADAR_SITES, OUT_W, OUT_H)
+from descarregar import (neteja_interferencies, _decode_top, _cap_classes_rang,
+                         ESCALA_COLOR, RADARS_EXCLOSOS, RADAR_SITES, OUT_W, OUT_H)
 
 _DGRIDS = {}
 def graella_dist(codi):
@@ -63,9 +63,17 @@ def reconstruir():
             if not mask.any(): continue
             cls = _decode_top(rgba, mask)
             cls = neteja_interferencies(cls, min_area=2, filtre_rugositat=True)
+            dg = graella_dist(rd.name)
+            # Limit de classe per distancia + recoloracio
+            cls_cap = _cap_classes_rang(cls, dg)
+            canvi = (cls_cap != cls) & (cls_cap > 0)
+            if canvi.any():
+                import numpy as _np
+                for cl in _np.unique(cls_cap[canvi]):
+                    rgba[canvi & (cls_cap == cl)] = ESCALA_COLOR[int(cl)]
+            cls = cls_cap
             m = cls > 0
             # Regla de proximitat: guanya el radar amb dades mes proxim
-            dg = graella_dist(rd.name)
             upd = m & (dg < comp_dist)
             comp_alt[upd]  = cls[upd]
             comp_rgba[upd] = rgba[upd]
@@ -96,7 +104,7 @@ def reconstruir():
                 meta["px_actius"] = int((comp_alt > 0).sum())
                 meta["radars"] = radars
                 meta["reconstruit_sense"] = sorted(RADARS_EXCLOSOS)
-                meta["composit_regla"] = "radar_mes_proxim"
+                meta["composit_regla"] = "radar_mes_proxim+cap_classe_rang"
                 meta["dist_units"] = "km (uint8; 0=sense dades, 254=max)"
                 json_f.write_text(json.dumps(meta, indent=2))
             except Exception: pass

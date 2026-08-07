@@ -57,6 +57,26 @@ RADAR_SITES = {
     "ZAR": (41.72, -0.55),
 }
 
+# Limit de classe credible segons distancia al radar (nomes al COMPOSIT;
+# els frames individuals es guarden en brut). Justificacio empirica
+# (2026-08-06): cap radar reporta classe 13 per davall de ~110 km; els
+# sostres >14-20 km a llarga distancia son contaminacio de lobuls laterals
+# i geometria del feix (1 grau = ~3.5 km a 200 km).
+def _cap_classes_rang(cls, dgrid):
+    caps = np.full(cls.shape, 13, np.uint8)
+    caps[dgrid > 120] = 12   # >120 km: max 16-20 km
+    caps[dgrid > 160] = 11   # >160 km: max 14-16 km
+    caps[dgrid > 200] = 10   # >200 km: max 12-14 km
+    return np.minimum(cls, caps)
+
+ESCALA_COLOR = {c: (r, g, b, 255) for (r, g, b), c in [
+    ((  0,   0, 252),  1), ((  0, 130, 255),  2), ((  0, 190, 255),  3),
+    ((  0, 255, 255),  4), (( 67, 131,  35),  5), ((150, 200,   0),  6),
+    ((  0, 250,   0),  7), ((255, 255,   0),  8), ((255, 170,   0),  9),
+    ((255, 107,   0), 10), ((252,   0,   0), 11), ((200,   0,  80), 12),
+    ((130,  10, 110), 13),
+]}
+
 def _graella_dist(site_lat, site_lon, oy0, oy1, ox0, ox1):
     """Distancia (km) de cada pixel de la regio a la posicio del radar."""
     lats = ESP_LAT[1] - (np.arange(oy0, oy1) + 0.5) / 100.0
@@ -335,6 +355,14 @@ def arxivar_echotop():
                 site_lat = (b.top + b.bottom) / 2.0
                 site_lon = (b.left + b.right) / 2.0
                 dgrid = _graella_dist(site_lat, site_lon, oy0, oy1, ox0, ox1)
+                # Aplica el limit de classe per distancia i recoloreja
+                alt_cap = _cap_classes_rang(alt, dgrid)
+                canvi = (alt_cap != alt) & (alt_cap > 0)
+                if canvi.any():
+                    for cl in np.unique(alt_cap[canvi]):
+                        patch[canvi & (alt_cap == cl)] = ESCALA_COLOR[int(cl)]
+                alt = alt_cap
+                data_mask = alt > 0
                 reg_alt  = comp_alt [oy0:oy1, ox0:ox1]
                 reg_rgba = comp_rgba[oy0:oy1, ox0:ox1]
                 reg_dist = comp_dist[oy0:oy1, ox0:ox1]
@@ -383,7 +411,7 @@ def arxivar_echotop():
                            "lon_max":ESP_LON[1],"lat_max":ESP_LAT[1]},
                 "shape": [OUT_H, OUT_W], "px_actius": n_act,
                 "alt_units": "classe_escala_top_1_13",
-                "composit_regla": "radar_mes_proxim",
+                "composit_regla": "radar_mes_proxim+cap_classe_rang",
                 "dist_units": "km (uint8; 0=sense dades, 254=max)",
             }
             buf = io.BytesIO()
