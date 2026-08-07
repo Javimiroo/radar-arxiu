@@ -3,19 +3,19 @@
   "tipus": "echotop_composit",
   "radars": [
     "AHR",
-    "LLM",
-    "LPA",
     "CCD",
-    "TJV",
-    "NJR",
+    "CLG",
     "FTN",
-    "PDG",
     "GLD",
     "GRM",
-    "SLS",
-    "CLG",
+    "LLM",
+    "LPA",
+    "NJR",
+    "PDG",
     "SFT",
-    "SSE"
+    "SLS",
+    "SSE",
+    "TJV"
   ],
   "bounds": {
     "lon_min": -9.5,
@@ -28,5 +28,10 @@
     1400
   ],
   "px_actius": 67854,
-  "alt_units": "classe_escala_top_1_13"
+  "alt_units": "classe_escala_top_1_13",
+  "reconstruit_sense": [
+    "LID"
+  ],
+  "composit_regla": "radar_mes_proxim",
+  "dist_units": "km (uint8; 0=sense dades, 254=max)"
 }

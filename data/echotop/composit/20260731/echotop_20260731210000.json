@@ -2,20 +2,20 @@
   "timestamp_utc": "2026-07-31T21:00:00Z",
   "tipus": "echotop_composit",
   "radars": [
-    "LPA",
+    "AHR",
     "CCD",
-    "TJV",
-    "NJR",
+    "CLG",
     "FTN",
-    "PDG",
     "GLD",
     "GRM",
-    "SLS",
-    "CLG",
+    "LLM",
+    "LPA",
+    "NJR",
+    "PDG",
     "SFT",
+    "SLS",
     "SSE",
-    "AHR",
-    "LLM"
+    "TJV"
   ],
   "bounds": {
     "lon_min": -9.5,
@@ -28,5 +28,10 @@
     1400
   ],
   "px_actius": 14257,
-  "alt_units": "classe_escala_top_1_13"
+  "alt_units": "classe_escala_top_1_13",
+  "reconstruit_sense": [
+    "LID"
+  ],
+  "composit_regla": "radar_mes_proxim",
+  "dist_units": "km (uint8; 0=sense dades, 254=max)"
 }

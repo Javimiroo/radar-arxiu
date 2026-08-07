@@ -31,5 +31,7 @@
   "alt_units": "classe_escala_top_1_13",
   "reconstruit_sense": [
     "LID"
-  ]
+  ],
+  "composit_regla": "radar_mes_proxim",
+  "dist_units": "km (uint8; 0=sense dades, 254=max)"
 }
