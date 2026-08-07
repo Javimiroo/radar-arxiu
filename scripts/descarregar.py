@@ -64,9 +64,9 @@ RADAR_SITES = {
 # i geometria del feix (1 grau = ~3.5 km a 200 km).
 def _cap_classes_rang(cls, dgrid):
     caps = np.full(cls.shape, 13, np.uint8)
-    caps[dgrid > 120] = 12   # >120 km: max 16-20 km
-    caps[dgrid > 160] = 11   # >160 km: max 14-16 km
-    caps[dgrid > 200] = 10   # >200 km: max 12-14 km
+    caps[dgrid >  80] = 12   # >80 km:  max 16-20 km
+    caps[dgrid > 130] = 11   # >130 km: max 14-16 km
+    caps[dgrid > 180] = 10   # >180 km: max 12-14 km
     return np.minimum(cls, caps)
 
 ESCALA_COLOR = {c: (r, g, b, 255) for (r, g, b), c in [
@@ -330,6 +330,8 @@ def arxivar_echotop():
         comp_alt  = np.zeros((OUT_H, OUT_W), dtype=np.uint8)
         comp_rgba = np.zeros((OUT_H, OUT_W, 4), dtype=np.uint8)
         comp_dist = np.full((OUT_H, OUT_W), np.inf, dtype=np.float32)
+        comp_altM = np.zeros((OUT_H, OUT_W), dtype=np.uint8)   # pista max()
+        comp_rgbM = np.zeros((OUT_H, OUT_W, 4), dtype=np.uint8)
 
         for codi, membre in membres_ts:
             dades = tf.extractfile(membre).read()
@@ -371,6 +373,13 @@ def arxivar_echotop():
                 reg_rgba[upd] = patch[upd]
                 reg_rgba[upd, 3] = 255
                 reg_dist[upd] = dgrid[upd]
+                # Pista max() (per al farciment plausible dels anells)
+                reg_aM = comp_altM[oy0:oy1, ox0:ox1]
+                reg_rM = comp_rgbM[oy0:oy1, ox0:ox1]
+                updM = data_mask & (alt > reg_aM)
+                reg_aM[updM] = alt[updM]
+                reg_rM[updM] = patch[updM]
+                reg_rM[updM, 3] = 255
 
             dia_dir_rad = DATA_DIR / "echotop" / codi / ts_full[:8]
             nom_rad = f"echotop_{codi}_{ts_full}"
@@ -401,6 +410,13 @@ def arxivar_echotop():
                 dia_dir_rad.mkdir(parents=True, exist_ok=True)
                 (dia_dir_rad / f"{nom_rad}_alt.png").write_bytes(buf_alt.getvalue())
 
+        # FUSIO: si el max() discrepa <=1 classe del radar proxim, val el max
+        # (farceix els anells de quantitzacio); si discrepa mes, mana el proxim
+        # (rebutja sobreestimacions del radar llunya).
+        fusio = comp_altM.astype(np.int16) - comp_alt.astype(np.int16) <= 1
+        comp_alt  = np.where(fusio, comp_altM, comp_alt)
+        comp_rgba = np.where(fusio[..., None], comp_rgbM, comp_rgba)
+
         if nom_comp not in carregar_arxivats(dia_dir_comp):
             n_act = int((comp_alt > 0).sum())
             meta_comp = {
@@ -411,7 +427,7 @@ def arxivar_echotop():
                            "lon_max":ESP_LON[1],"lat_max":ESP_LAT[1]},
                 "shape": [OUT_H, OUT_W], "px_actius": n_act,
                 "alt_units": "classe_escala_top_1_13",
-                "composit_regla": "radar_mes_proxim+cap_classe_rang",
+                "composit_regla": "proxim+cap_v2+fusio_max1",
                 "dist_units": "km (uint8; 0=sense dades, 254=max)",
             }
             buf = io.BytesIO()
