@@ -76,8 +76,10 @@ select{background:#1e1e1e;border:1px solid #333;color:#ccc;padding:5px 7px;
   </div>
   <select id="selRadar" style="display:none" onchange="canviarRadar(this.value)"></select>
   <div class="sep"></div>
-  <label style="font-size:11px;color:#555">Data:</label>
-  <select id="selData" onchange="carregarDia(this.value)"><option>…</option></select>
+  <label style="font-size:11px;color:#555">De:</label>
+  <select id="selData" onchange="carregarRang()"><option>…</option></select>
+  <label style="font-size:11px;color:#555">a</label>
+  <select id="selDataFi" onchange="carregarRang()"><option>…</option></select>
   <div class="sep"></div>
   <div class="seg">
     <button class="btn sel" onclick="switchBase('topo',this)">Topo</button>
@@ -240,8 +242,12 @@ async function carregarManifest(){
 function poblarSelectors(){
   var dades=dadesActuals();
   var dates=[...new Set(Object.keys(dades).map(ts=>ts.slice(0,10)))].sort().reverse();
-  document.getElementById('selData').innerHTML=
-    dates.map(d=>`<option value="${d}">${d}</option>`).join('');
+  var optsD=dates.map(d=>`<option value="${d}">${d}</option>`).join('');
+  var s0=document.getElementById('selData'), s1=document.getElementById('selDataFi');
+  var v0=s0.value, v1=s1.value;
+  s0.innerHTML=optsD; s1.innerHTML=optsD;
+  if(dates.indexOf(v0)>=0) s0.value=v0;
+  if(dates.indexOf(v1)>=0) s1.value=v1;
 
   var rads=Object.keys(manifest.radars_individuals||{}).sort();
   var selR=document.getElementById('selRadar');
@@ -249,7 +255,7 @@ function poblarSelectors(){
     rads.map(r=>`<option value="${r}">${r} — ${NOMS_RADAR[r]||r}</option>`).join('');
   if(curRadar) selR.value=curRadar;
 
-  if(dates.length) carregarDia(dates[0]);
+  if(dates.length) carregarRang();
 }
 
 function dadesActuals(){
@@ -260,10 +266,14 @@ function dadesActuals(){
   return {};
 }
 
-function carregarDia(data){
+function carregarRang(){
+  var d0=document.getElementById('selData').value;
+  var d1=document.getElementById('selDataFi').value;
+  if(!d0||!d1) return;
+  if(d0>d1){var tmp=d0;d0=d1;d1=tmp;}
   var dades=dadesActuals();
   var filtrats=Object.entries(dades)
-    .filter(([ts])=>ts.startsWith(data))
+    .filter(([ts])=>{var d=ts.slice(0,10);return d>=d0&&d<=d1;})
     .sort(([a],[b])=>a.localeCompare(b));
   frames=filtrats.map(([ts,path])=>({ts,url:'./'+path}));
   document.getElementById('tl').max=Math.max(0,frames.length-1);
@@ -304,6 +314,11 @@ function _warpMercator(img){
 }
 function _overlayUrl(f,cb){
   if(_warpCache[f.url]) return cb(_warpCache[f.url]);
+  // Límita la cache (rangs de diversos dies poden ser milers de frames)
+  var claus=Object.keys(_warpCache);
+  if(claus.length>600){
+    for(var ci=0;ci<100;ci++) delete _warpCache[claus[ci]];
+  }
   var img=new Image(); img.crossOrigin='anonymous';
   img.onload=function(){
     try{_warpCache[f.url]=_warpMercator(img).toDataURL()}
