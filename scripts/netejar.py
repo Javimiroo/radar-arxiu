@@ -1,14 +1,15 @@
 """
 netejar.py
 ==========
-Elimina dades de més de 30 dies per mantenir el repositori manejable.
+Elimina de MAIN les dades de mes de 7 dies (Pages te limit d'1 GB).
+L'arxiu complet es conserva per sempre a la branca 'arxiu'.
 """
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import shutil
 
 DATA_DIR  = Path(__file__).parent.parent / "data"
-MAX_DIES  = 30
+MAX_DIES  = 7
 
 def netejar():
     llindar = datetime.now(timezone.utc) - timedelta(days=MAX_DIES)

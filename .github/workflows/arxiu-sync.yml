@@ -1,0 +1,55 @@
+name: Sincronitzar branca arxiu
+on:
+  schedule:
+    - cron: '17 2 * * *'    # cada dia a les 02:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sincronitzar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout branca arxiu
+        uses: actions/checkout@v4
+        with:
+          ref: arxiu
+          path: arxiu-branch
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Copiar dades noves a l'arxiu (append-only, mai esborra)
+        run: |
+          rsync -a data/ arxiu-branch/data/
+          cp -f scripts/manifest.py arxiu-branch/scripts/manifest.py
+          cd arxiu-branch
+          python scripts/manifest.py
+
+      - name: Commit i push a arxiu (amb reintents)
+        run: |
+          cd arxiu-branch
+          git config user.name  "radar-bot"
+          git config user.email "radar-bot@noreply.github.com"
+          git add data/ manifest.json scripts/manifest.py
+          if git diff --staged --quiet; then
+            echo "Arxiu al dia."
+            exit 0
+          fi
+          git commit -m "🗄 Arxiu $(date -u '+%Y-%m-%d %H:%M') UTC"
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin arxiu || { sleep 10; continue; }
+            if git push origin HEAD:arxiu; then exit 0; fi
+            sleep 10
+          done
+          exit 1

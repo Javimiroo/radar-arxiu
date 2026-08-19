@@ -228,12 +228,40 @@ function setStatus(m){document.getElementById('status').textContent=m}
 function setLoading(v){document.getElementById('loading').classList.toggle('hidden',!v)}
 
 // ── Manifest ──────────────────────────────────────────────────────────────
+// main = ultims 7 dies (rapid, via Pages) · branca arxiu = historic complet
+var RAW_ARXIU='https://raw.githubusercontent.com/Javimiroo/radar-arxiu/arxiu/';
+
+function _prefixa(obj,base){
+  var r={}; for(var k in obj) r[k]=base+obj[k]; return r;
+}
+function _fusionaManifests(arx,mn){
+  var out={actualitzat:mn.actualitzat,composit:{},echotop_composit:{},radars_individuals:{}};
+  if(arx){
+    out.composit=_prefixa(arx.composit||{},RAW_ARXIU);
+    out.echotop_composit=_prefixa(arx.echotop_composit||{},RAW_ARXIU);
+    for(var c in (arx.radars_individuals||{}))
+      out.radars_individuals[c]=_prefixa(arx.radars_individuals[c],RAW_ARXIU);
+  }
+  Object.assign(out.composit,_prefixa(mn.composit||{},'./'));
+  Object.assign(out.echotop_composit,_prefixa(mn.echotop_composit||{},'./'));
+  for(var c in (mn.radars_individuals||{}))
+    out.radars_individuals[c]=Object.assign(out.radars_individuals[c]||{},
+      _prefixa(mn.radars_individuals[c],'./'));
+  return out;
+}
+
 async function carregarManifest(){
   setLoading(true);
   try{
     var r=await fetch('./manifest.json?_='+Date.now());
-    manifest=await r.json();
-    setStatus('✓ '+manifest.actualitzat.slice(0,16)+' UTC');
+    var mMain=await r.json();
+    var mArxiu=null;
+    try{
+      var r2=await fetch(RAW_ARXIU+'manifest.json?_='+Date.now());
+      if(r2.ok) mArxiu=await r2.json();
+    }catch(e){console.warn('Sense manifest arxiu:',e);}
+    manifest=_fusionaManifests(mArxiu,mMain);
+    setStatus('✓ '+mMain.actualitzat.slice(0,16)+' UTC'+(mArxiu?' · arxiu complet':''));
     poblarSelectors();
   }catch(e){setStatus('ERROR: '+e.message)}
   setLoading(false);
@@ -275,7 +303,7 @@ function carregarRang(){
   var filtrats=Object.entries(dades)
     .filter(([ts])=>{var d=ts.slice(0,10);return d>=d0&&d<=d1;})
     .sort(([a],[b])=>a.localeCompare(b));
-  frames=filtrats.map(([ts,path])=>({ts,url:'./'+path}));
+  frames=filtrats.map(([ts,path])=>({ts,url:path}));  // path ja porta el prefix (main o arxiu)
   document.getElementById('tl').max=Math.max(0,frames.length-1);
   preloaded=false;
   document.getElementById('bPreload').textContent='⬇ Precàrrega';
