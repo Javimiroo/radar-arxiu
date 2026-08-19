@@ -1297,7 +1297,8 @@ async function executarCalcul(){
   var t1=document.getElementById('calcFinal').value;
   var fSel=frames.filter(function(f){return f.ts>=t0&&f.ts<=t1});
   if(!fSel.length){alert('Cap frame en el rang.');return;}
-  if(fSel.length>200){alert('Massa frames ('+fSel.length+'). Redueix el rang.');return;}
+  if(fSel.length>600){alert('Massa frames ('+fSel.length+'). El màxim són 600 (~4 dies): redueix el rang.');return;}
+  if(fSel.length>250&&!confirm(fSel.length+' frames: l\'anàlisi pot tardar uns minuts. Continuar?')) return;
 
   var setS=function(s){document.getElementById('calc-status').textContent=s};
   var setB=function(p){document.getElementById('calc-bar').style.width=p+'%'};
@@ -1314,14 +1315,59 @@ async function executarCalcul(){
   var cA=document.createElement('canvas'); cA.width=rw; cA.height=rh;
   var xA=cA.getContext('2d',{willReadFrequently:true}); xA.imageSmoothingEnabled=false;
 
-  // ── 1. Anàlisi frame a frame ──
+  // ── 0. Preparació del GIF (fons cartogràfic Mercator) ──
+  setS('Carregant fons cartogràfic…'); setB(3);
+  var k=Math.max(4,Math.min(24,Math.ceil(900/rw)));
+  var GW=rw*k;
+  var latN=44.0-y0/100, latS=44.0-y1/100, lonW=-9.5+x0/100, lonE=-9.5+x1/100;
+  var yTopW=(_MY_N-_mercY(latN))/(_MY_N-_MY_S)*850;
+  var yBotW=(_MY_N-_mercY(latS))/(_MY_N-_MY_S)*850;
+  var GHm=Math.round((yBotW-yTopW)*k), GH=GHm+26;
+  var gc=document.createElement('canvas'); gc.width=GW; gc.height=GH;
+  var gx=gc.getContext('2d');
+  var bgC=document.createElement('canvas'); bgC.width=GW; bgC.height=GHm;
+  var bx=bgC.getContext('2d');
+  bx.fillStyle='#0d1117'; bx.fillRect(0,0,GW,GHm);
+  try{
+    var calcFonsSel=document.getElementById('calcFons').value;
+    var z=Math.min(15,Math.max(6,Math.ceil(Math.log2(GW*360/((lonE-lonW)*256)))));
+    var scW=256*Math.pow(2,z);
+    var mpx=function(lon){return (lon+180)/360*scW};
+    var mpy=function(lat){var s=Math.sin(lat*Math.PI/180);
+      return (0.5-Math.log((1+s)/(1-s))/(4*Math.PI))*scW};
+    var px0m=mpx(lonW), px1m=mpx(lonE), py0m=mpy(latN), py1m=mpy(latS);
+    var sfx=GW/(px1m-px0m), sfy=GHm/(py1m-py0m);
+    var tX0=Math.floor(px0m/256), tX1=Math.floor((px1m-1)/256);
+    var tY0=Math.floor(py0m/256), tY1=Math.floor((py1m-1)/256);
+    var tLoads=[];
+    for(var tx=tX0;tx<=tX1;tx++) for(var ty=tY0;ty<=tY1;ty++){
+      (function(_tx,_ty){
+        tLoads.push(new Promise(function(rs){
+          var im=new Image(); im.crossOrigin='anonymous';
+          im.onload=function(){
+            bx.drawImage(im,(_tx*256-px0m)*sfx,(_ty*256-py0m)*sfy,256*sfx,256*sfy); rs();
+          };
+          im.onerror=rs;
+          im.src=FONS_TILES[calcFonsSel](z,_tx,_ty);
+        }));
+      })(tx,ty);
+    }
+    await Promise.all(tLoads);
+  }catch(e){console.warn('Fons GIF:',e);}
+  var gif=null, framesPNG=[];
+  try{
+    var workerUrl=await _getGifWorker();
+    gif=new GIF({workers:2,quality:1,width:GW,height:GH,workerScript:workerUrl});
+  }catch(e){console.warn('GIF encoder:',e);}
+
+  // ── 1. Bucle únic: anàlisi + fotograma (memòria constant) ──
   var res=[];
   for(var i=0;i<fSel.length;i++){
     var f=fSel[i];
     setS('Analitzant '+(i+1)+'/'+fSel.length+'…'); setB((i+1)/fSel.length*45);
     var altImg=await _carregaImg(f.url.replace(/\.png$/,'_alt.png')+'?_=1');
     var colImg=await _carregaImg(f.url+'?_=1');
-    var r={ts:f.ts,colImg:colImg,max:0,n:0,counts:{},cen:null};
+    var r={ts:f.ts,max:0,n:0,counts:{},cen:null};
     if(altImg){
       xA.clearRect(0,0,rw,rh);
       xA.drawImage(altImg,x0,y0,rw,rh,0,0,rw,rh);
@@ -1344,6 +1390,25 @@ async function executarCalcul(){
       }
     }
     res.push(r);
+    if(gif){
+      gx.imageSmoothingEnabled=true;
+      gx.fillStyle='#0d1117'; gx.fillRect(0,0,GW,GH);
+      gx.drawImage(bgC,0,26);
+      if(colImg){
+        var wcv=_warpMercator(colImg);
+        gx.imageSmoothingEnabled=false;
+        gx.globalAlpha=0.88;
+        gx.drawImage(wcv,x0,yTopW,rw,yBotW-yTopW,0,26,GW,GHm);
+        gx.globalAlpha=1;
+      }
+      gx.fillStyle='rgba(0,0,0,.8)'; gx.fillRect(0,0,GW,26);
+      gx.fillStyle='#fff'; gx.font='bold 15px monospace'; gx.textAlign='left';
+      gx.fillText(nomRaw+' · '+r.ts.slice(0,16).replace('T',' ')+' UTC'
+        +(r.max?' · màx '+ALT_LABELS[r.max]:''),8,18);
+      gif.addFrame(gc,{delay:300,copy:true});
+      var pblob=await new Promise(function(rs){gc.toBlob(rs,'image/png')});
+      framesPNG.push({nom:nom+'_'+r.ts.slice(0,10).replace(/-/g,'')+'_'+r.ts.slice(11,16).replace(':','')+'.png',blob:pblob});
+    }
   }
 
   // ── 2. Vectors de moviment (centroide) ──
@@ -1433,78 +1498,14 @@ async function executarCalcul(){
   slC.value=slC.max;
   drawCompass(-1); // totes sòlides (aquesta versió va al ZIP)
 
-  // ── 6. GIF de l'àrea (amb fons cartogràfic Mercator) ──
-  setS('Generant GIF…'); setB(50);
-  var k=Math.max(4,Math.min(24,Math.ceil(900/rw)));
-  var GW=rw*k;
-  var latN=44.0-y0/100, latS=44.0-y1/100, lonW=-9.5+x0/100, lonE=-9.5+x1/100;
-  var yTopW=(_MY_N-_mercY(latN))/(_MY_N-_MY_S)*850;
-  var yBotW=(_MY_N-_mercY(latS))/(_MY_N-_MY_S)*850;
-  var GHm=Math.round((yBotW-yTopW)*k), GH=GHm+26;
-  var gc=document.createElement('canvas'); gc.width=GW; gc.height=GH;
-  var gx=gc.getContext('2d');
+  // ── 6. Codificació del GIF ──
+  setS('Codificant GIF…'); setB(72);
   var gifBlob=null;
-
-  // Fons cartogràfic (context espacial) — es carrega una sola vegada
-  var bgC=document.createElement('canvas'); bgC.width=GW; bgC.height=GHm;
-  var bx=bgC.getContext('2d');
-  bx.fillStyle='#0d1117'; bx.fillRect(0,0,GW,GHm);
-  try{
-    setS('Carregant fons cartogràfic…');
-    var calcFonsSel=document.getElementById('calcFons').value;
-    var z=Math.min(15,Math.max(6,Math.ceil(Math.log2(GW*360/((lonE-lonW)*256)))));
-    var scW=256*Math.pow(2,z);
-    var mpx=function(lon){return (lon+180)/360*scW};
-    var mpy=function(lat){var s=Math.sin(lat*Math.PI/180);
-      return (0.5-Math.log((1+s)/(1-s))/(4*Math.PI))*scW};
-    var px0m=mpx(lonW), px1m=mpx(lonE), py0m=mpy(latN), py1m=mpy(latS);
-    var sfx=GW/(px1m-px0m), sfy=GHm/(py1m-py0m);
-    var tX0=Math.floor(px0m/256), tX1=Math.floor((px1m-1)/256);
-    var tY0=Math.floor(py0m/256), tY1=Math.floor((py1m-1)/256);
-    var tLoads=[];
-    for(var tx=tX0;tx<=tX1;tx++) for(var ty=tY0;ty<=tY1;ty++){
-      (function(_tx,_ty){
-        tLoads.push(new Promise(function(rs){
-          var im=new Image(); im.crossOrigin='anonymous';
-          im.onload=function(){
-            bx.drawImage(im,(_tx*256-px0m)*sfx,(_ty*256-py0m)*sfy,256*sfx,256*sfy); rs();
-          };
-          im.onerror=rs;
-          im.src=FONS_TILES[calcFonsSel](z,_tx,_ty);
-        }));
-      })(tx,ty);
-    }
-    await Promise.all(tLoads);
-  }catch(e){console.warn('Fons GIF:',e);}
-
-  try{
-    var workerUrl=await _getGifWorker();
-    var gif=new GIF({workers:2,quality:1,width:GW,height:GH,workerScript:workerUrl});
-    var framesPNG=[]; // reutilitzats per al ZIP
-    for(var i=0;i<res.length;i++){
-      var r=res[i];
-      gx.imageSmoothingEnabled=true;
-      gx.fillStyle='#0d1117'; gx.fillRect(0,0,GW,GH);
-      gx.drawImage(bgC,0,26);
-      if(r.colImg){
-        // Warp del radar a Mercator perquè encaixe amb el fons
-        var wcv=_warpMercator(r.colImg);
-        gx.imageSmoothingEnabled=false;
-        gx.globalAlpha=0.88;
-        gx.drawImage(wcv,x0,yTopW,rw,yBotW-yTopW,0,26,GW,GHm);
-        gx.globalAlpha=1;
-      }
-      gx.fillStyle='rgba(0,0,0,.8)'; gx.fillRect(0,0,GW,26);
-      gx.fillStyle='#fff'; gx.font='bold 15px monospace'; gx.textAlign='left';
-      gx.fillText(nomRaw+' · '+r.ts.slice(0,16).replace('T',' ')+' UTC'
-        +(r.max?' · màx '+ALT_LABELS[r.max]:''),8,18);
-      gif.addFrame(gc,{delay:300,copy:true});
-      var blob=await new Promise(function(rs){gc.toBlob(rs,'image/png')});
-      framesPNG.push({nom:nom+'_'+r.ts.slice(0,10).replace(/-/g,'')+'_'+r.ts.slice(11,16).replace(':','')+'.png',blob:blob});
-      setB(55+((i+1)/res.length)*20);
-    }
-    gifBlob=await new Promise(function(rs){gif.on('finished',rs);gif.render();});
-  }catch(e){console.warn('GIF:',e);}
+  if(gif&&framesPNG.length){
+    try{
+      gifBlob=await new Promise(function(rs){gif.on('finished',rs);gif.render();});
+    }catch(e){console.warn('GIF:',e);}
+  }
 
   // ── 7. ZIP ──
   setS('Empaquetant ZIP…'); setB(80);
