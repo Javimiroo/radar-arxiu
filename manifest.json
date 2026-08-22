@@ -1,5 +1,5 @@
 {
-  "actualitzat": "2026-08-22T00:31:35Z",
+  "actualitzat": "2026-08-22T00:41:46Z",
   "composit": {
     "2026-08-15T00:00:00Z": "data/composit/20260815/radar_20260815000000.png",
     "2026-08-15T00:10:00Z": "data/composit/20260815/radar_20260815001000.png",
@@ -990,7 +990,8 @@
     "2026-08-21T23:40:00Z": "data/composit/20260821/radar_20260821234000.png",
     "2026-08-21T23:50:00Z": "data/composit/20260821/radar_20260821235000.png",
     "2026-08-22T00:00:00Z": "data/composit/20260822/radar_20260822000000.png",
-    "2026-08-22T00:10:00Z": "data/composit/20260822/radar_20260822001000.png"
+    "2026-08-22T00:10:00Z": "data/composit/20260822/radar_20260822001000.png",
+    "2026-08-22T00:20:00Z": "data/composit/20260822/radar_20260822002000.png"
   },
   "echotop_composit": {
     "2026-08-15T00:00:00Z": "data/echotop/composit/20260815/echotop_20260815000000.png",
@@ -1988,6 +1989,7 @@
     "2026-08-21T23:30:00Z": "data/echotop/composit/20260821/echotop_20260821233000.png",
     "2026-08-21T23:40:00Z": "data/echotop/composit/20260821/echotop_20260821234000.png",
     "2026-08-21T23:50:00Z": "data/echotop/composit/20260821/echotop_20260821235000.png",
+    "2026-08-21T23:56:00Z": "data/echotop/composit/20260821/echotop_20260821235600.png",
     "2026-08-22T00:00:00Z": "data/echotop/composit/20260822/echotop_20260822000000.png",
     "2026-08-22T00:02:00Z": "data/echotop/composit/20260822/echotop_20260822000200.png",
     "2026-08-22T00:10:00Z": "data/echotop/composit/20260822/echotop_20260822001000.png"
@@ -17051,6 +17053,7 @@
       "2026-08-21T22:50:00Z": "data/echotop/TJV/20260821/echotop_TJV_20260821225000.png",
       "2026-08-21T23:00:00Z": "data/echotop/TJV/20260821/echotop_TJV_20260821230000.png",
       "2026-08-21T23:10:00Z": "data/echotop/TJV/20260821/echotop_TJV_20260821231000.png",
+      "2026-08-21T23:56:00Z": "data/echotop/TJV/20260821/echotop_TJV_20260821235600.png",
       "2026-08-22T00:02:00Z": "data/echotop/TJV/20260822/echotop_TJV_20260822000200.png"
     },
     "VAL": {},
