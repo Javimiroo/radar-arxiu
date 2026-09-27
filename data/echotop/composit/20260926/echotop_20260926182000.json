@@ -1,0 +1,23 @@
+{
+  "timestamp_utc": "2026-09-26T18:20:00Z",
+  "tipus": "echotop_composit",
+  "radars": [
+    "SSE",
+    "ATP",
+    "GLD"
+  ],
+  "bounds": {
+    "lon_min": -9.5,
+    "lat_min": 35.5,
+    "lon_max": 4.5,
+    "lat_max": 44.0
+  },
+  "shape": [
+    850,
+    1400
+  ],
+  "px_actius": 11739,
+  "alt_units": "classe_escala_top_1_13",
+  "composit_regla": "proxim+cap_v2+fusio_max1",
+  "dist_units": "km (uint8; 0=sense dades, 254=max)"
+}
