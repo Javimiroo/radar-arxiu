@@ -1,5 +1,5 @@
 {
-  "actualitzat": "2026-10-01T23:41:59Z",
+  "actualitzat": "2026-10-01T23:51:34Z",
   "composit": {
     "2026-09-24T00:00:00Z": "data/composit/20260924/radar_20260924000000.png",
     "2026-09-24T00:10:00Z": "data/composit/20260924/radar_20260924001000.png",
@@ -1126,7 +1126,10 @@
     "2026-10-01T22:40:00Z": "data/composit/20261001/radar_20261001224000.png",
     "2026-10-01T22:50:00Z": "data/composit/20261001/radar_20261001225000.png",
     "2026-10-01T23:00:00Z": "data/composit/20261001/radar_20261001230000.png",
-    "2026-10-01T23:10:00Z": "data/composit/20261001/radar_20261001231000.png"
+    "2026-10-01T23:10:00Z": "data/composit/20261001/radar_20261001231000.png",
+    "2026-10-01T23:20:00Z": "data/composit/20261001/radar_20261001232000.png",
+    "2026-10-01T23:30:00Z": "data/composit/20261001/radar_20261001233000.png",
+    "2026-10-01T23:40:00Z": "data/composit/20261001/radar_20261001234000.png"
   },
   "echotop_composit": {
     "2026-09-24T00:00:00Z": "data/echotop/composit/20260924/echotop_20260924000000.png",
@@ -2273,6 +2276,7 @@
     "2026-10-01T22:20:00Z": "data/echotop/composit/20261001/echotop_20261001222000.png",
     "2026-10-01T22:30:00Z": "data/echotop/composit/20261001/echotop_20261001223000.png",
     "2026-10-01T22:40:00Z": "data/echotop/composit/20261001/echotop_20261001224000.png",
+    "2026-10-01T22:50:00Z": "data/echotop/composit/20261001/echotop_20261001225000.png",
     "2026-10-01T23:00:00Z": "data/echotop/composit/20261001/echotop_20261001230000.png",
     "2026-10-01T23:10:00Z": "data/echotop/composit/20261001/echotop_20261001231000.png",
     "2026-10-01T23:20:00Z": "data/echotop/composit/20261001/echotop_20261001232000.png"
@@ -13264,7 +13268,8 @@
       "2026-10-01T22:00:00Z": "data/echotop/LPA/20261001/echotop_LPA_20261001220000.png",
       "2026-10-01T22:20:00Z": "data/echotop/LPA/20261001/echotop_LPA_20261001222000.png",
       "2026-10-01T22:30:00Z": "data/echotop/LPA/20261001/echotop_LPA_20261001223000.png",
-      "2026-10-01T22:40:00Z": "data/echotop/LPA/20261001/echotop_LPA_20261001224000.png"
+      "2026-10-01T22:40:00Z": "data/echotop/LPA/20261001/echotop_LPA_20261001224000.png",
+      "2026-10-01T22:50:00Z": "data/echotop/LPA/20261001/echotop_LPA_20261001225000.png"
     },
     "MAD": {},
     "MAL": {},
