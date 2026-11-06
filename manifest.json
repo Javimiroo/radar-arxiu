@@ -1,5 +1,5 @@
 {
-  "actualitzat": "2026-11-06T09:31:39Z",
+  "actualitzat": "2026-11-06T09:41:24Z",
   "composit": {
     "2026-10-30T00:00:00Z": "data/composit/20261030/radar_20261030000000.png",
     "2026-10-30T00:10:00Z": "data/composit/20261030/radar_20261030001000.png",
@@ -1053,7 +1053,11 @@
     "2026-11-06T08:10:00Z": "data/composit/20261106/radar_20261106081000.png",
     "2026-11-06T08:20:00Z": "data/composit/20261106/radar_20261106082000.png",
     "2026-11-06T08:30:00Z": "data/composit/20261106/radar_20261106083000.png",
-    "2026-11-06T08:40:00Z": "data/composit/20261106/radar_20261106084000.png"
+    "2026-11-06T08:40:00Z": "data/composit/20261106/radar_20261106084000.png",
+    "2026-11-06T08:50:00Z": "data/composit/20261106/radar_20261106085000.png",
+    "2026-11-06T09:00:00Z": "data/composit/20261106/radar_20261106090000.png",
+    "2026-11-06T09:10:00Z": "data/composit/20261106/radar_20261106091000.png",
+    "2026-11-06T09:20:00Z": "data/composit/20261106/radar_20261106092000.png"
   },
   "echotop_composit": {
     "2026-10-30T00:00:00Z": "data/echotop/composit/20261030/echotop_20261030000000.png",
