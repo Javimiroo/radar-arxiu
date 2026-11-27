@@ -1,5 +1,5 @@
 {
-  "actualitzat": "2026-11-27T00:11:26Z",
+  "actualitzat": "2026-11-27T00:21:34Z",
   "composit": {
     "2026-11-20T00:00:00Z": "data/composit/20261120/radar_20261120000000.png",
     "2026-11-20T00:10:00Z": "data/composit/20261120/radar_20261120001000.png",
@@ -967,7 +967,10 @@
     "2026-11-26T23:00:00Z": "data/composit/20261126/radar_20261126230000.png",
     "2026-11-26T23:10:00Z": "data/composit/20261126/radar_20261126231000.png",
     "2026-11-26T23:20:00Z": "data/composit/20261126/radar_20261126232000.png",
-    "2026-11-26T23:30:00Z": "data/composit/20261126/radar_20261126233000.png"
+    "2026-11-26T23:30:00Z": "data/composit/20261126/radar_20261126233000.png",
+    "2026-11-26T23:40:00Z": "data/composit/20261126/radar_20261126234000.png",
+    "2026-11-26T23:50:00Z": "data/composit/20261126/radar_20261126235000.png",
+    "2026-11-27T00:00:00Z": "data/composit/20261127/radar_20261127000000.png"
   },
   "echotop_composit": {
     "2026-11-20T00:20:00Z": "data/echotop/composit/20261120/echotop_20261120002000.png",
@@ -1585,7 +1588,10 @@
     "2026-11-26T22:50:00Z": "data/echotop/composit/20261126/echotop_20261126225000.png",
     "2026-11-26T23:10:00Z": "data/echotop/composit/20261126/echotop_20261126231000.png",
     "2026-11-26T23:20:00Z": "data/echotop/composit/20261126/echotop_20261126232000.png",
-    "2026-11-26T23:30:00Z": "data/echotop/composit/20261126/echotop_20261126233000.png"
+    "2026-11-26T23:30:00Z": "data/echotop/composit/20261126/echotop_20261126233000.png",
+    "2026-11-26T23:40:00Z": "data/echotop/composit/20261126/echotop_20261126234000.png",
+    "2026-11-26T23:50:00Z": "data/echotop/composit/20261126/echotop_20261126235000.png",
+    "2026-11-27T00:00:00Z": "data/echotop/composit/20261127/echotop_20261127000000.png"
   },
   "radars_individuals": {
     "AHR": {
@@ -2755,7 +2761,10 @@
       "2026-11-26T22:50:00Z": "data/echotop/CCD/20261126/echotop_CCD_20261126225000.png",
       "2026-11-26T23:10:00Z": "data/echotop/CCD/20261126/echotop_CCD_20261126231000.png",
       "2026-11-26T23:20:00Z": "data/echotop/CCD/20261126/echotop_CCD_20261126232000.png",
-      "2026-11-26T23:30:00Z": "data/echotop/CCD/20261126/echotop_CCD_20261126233000.png"
+      "2026-11-26T23:30:00Z": "data/echotop/CCD/20261126/echotop_CCD_20261126233000.png",
+      "2026-11-26T23:40:00Z": "data/echotop/CCD/20261126/echotop_CCD_20261126234000.png",
+      "2026-11-26T23:50:00Z": "data/echotop/CCD/20261126/echotop_CCD_20261126235000.png",
+      "2026-11-27T00:00:00Z": "data/echotop/CCD/20261127/echotop_CCD_20261127000000.png"
     },
     "CLG": {
       "2026-11-20T00:20:00Z": "data/echotop/CLG/20261120/echotop_CLG_20261120002000.png",
@@ -3358,7 +3367,10 @@
       "2026-11-26T22:50:00Z": "data/echotop/CLG/20261126/echotop_CLG_20261126225000.png",
       "2026-11-26T23:10:00Z": "data/echotop/CLG/20261126/echotop_CLG_20261126231000.png",
       "2026-11-26T23:20:00Z": "data/echotop/CLG/20261126/echotop_CLG_20261126232000.png",
-      "2026-11-26T23:30:00Z": "data/echotop/CLG/20261126/echotop_CLG_20261126233000.png"
+      "2026-11-26T23:30:00Z": "data/echotop/CLG/20261126/echotop_CLG_20261126233000.png",
+      "2026-11-26T23:40:00Z": "data/echotop/CLG/20261126/echotop_CLG_20261126234000.png",
+      "2026-11-26T23:50:00Z": "data/echotop/CLG/20261126/echotop_CLG_20261126235000.png",
+      "2026-11-27T00:00:00Z": "data/echotop/CLG/20261127/echotop_CLG_20261127000000.png"
     },
     "CLL": {
       "2026-11-20T00:20:00Z": "data/echotop/CLL/20261120/echotop_CLL_20261120002000.png",
@@ -3961,7 +3973,10 @@
       "2026-11-26T22:50:00Z": "data/echotop/CLL/20261126/echotop_CLL_20261126225000.png",
       "2026-11-26T23:10:00Z": "data/echotop/CLL/20261126/echotop_CLL_20261126231000.png",
       "2026-11-26T23:20:00Z": "data/echotop/CLL/20261126/echotop_CLL_20261126232000.png",
-      "2026-11-26T23:30:00Z": "data/echotop/CLL/20261126/echotop_CLL_20261126233000.png"
+      "2026-11-26T23:30:00Z": "data/echotop/CLL/20261126/echotop_CLL_20261126233000.png",
+      "2026-11-26T23:40:00Z": "data/echotop/CLL/20261126/echotop_CLL_20261126234000.png",
+      "2026-11-26T23:50:00Z": "data/echotop/CLL/20261126/echotop_CLL_20261126235000.png",
+      "2026-11-27T00:00:00Z": "data/echotop/CLL/20261127/echotop_CLL_20261127000000.png"
     },
     "COR": {},
     "FTN": {
@@ -4565,7 +4580,10 @@
       "2026-11-26T22:50:00Z": "data/echotop/FTN/20261126/echotop_FTN_20261126225000.png",
       "2026-11-26T23:10:00Z": "data/echotop/FTN/20261126/echotop_FTN_20261126231000.png",
       "2026-11-26T23:20:00Z": "data/echotop/FTN/20261126/echotop_FTN_20261126232000.png",
-      "2026-11-26T23:30:00Z": "data/echotop/FTN/20261126/echotop_FTN_20261126233000.png"
+      "2026-11-26T23:30:00Z": "data/echotop/FTN/20261126/echotop_FTN_20261126233000.png",
+      "2026-11-26T23:40:00Z": "data/echotop/FTN/20261126/echotop_FTN_20261126234000.png",
+      "2026-11-26T23:50:00Z": "data/echotop/FTN/20261126/echotop_FTN_20261126235000.png",
+      "2026-11-27T00:00:00Z": "data/echotop/FTN/20261127/echotop_FTN_20261127000000.png"
     },
     "GLD": {
       "2026-11-20T00:20:00Z": "data/echotop/GLD/20261120/echotop_GLD_20261120002000.png",
@@ -5169,7 +5187,10 @@
       "2026-11-26T22:50:00Z": "data/echotop/GLD/20261126/echotop_GLD_20261126225000.png",
       "2026-11-26T23:10:00Z": "data/echotop/GLD/20261126/echotop_GLD_20261126231000.png",
       "2026-11-26T23:20:00Z": "data/echotop/GLD/20261126/echotop_GLD_20261126232000.png",
-      "2026-11-26T23:30:00Z": "data/echotop/GLD/20261126/echotop_GLD_20261126233000.png"
+      "2026-11-26T23:30:00Z": "data/echotop/GLD/20261126/echotop_GLD_20261126233000.png",
+      "2026-11-26T23:40:00Z": "data/echotop/GLD/20261126/echotop_GLD_20261126234000.png",
+      "2026-11-26T23:50:00Z": "data/echotop/GLD/20261126/echotop_GLD_20261126235000.png",
+      "2026-11-27T00:00:00Z": "data/echotop/GLD/20261127/echotop_GLD_20261127000000.png"
     },
     "GRM": {
       "2026-11-20T00:20:00Z": "data/echotop/GRM/20261120/echotop_GRM_20261120002000.png",
@@ -5773,7 +5794,10 @@
       "2026-11-26T22:50:00Z": "data/echotop/GRM/20261126/echotop_GRM_20261126225000.png",
       "2026-11-26T23:10:00Z": "data/echotop/GRM/20261126/echotop_GRM_20261126231000.png",
       "2026-11-26T23:20:00Z": "data/echotop/GRM/20261126/echotop_GRM_20261126232000.png",
-      "2026-11-26T23:30:00Z": "data/echotop/GRM/20261126/echotop_GRM_20261126233000.png"
+      "2026-11-26T23:30:00Z": "data/echotop/GRM/20261126/echotop_GRM_20261126233000.png",
+      "2026-11-26T23:40:00Z": "data/echotop/GRM/20261126/echotop_GRM_20261126234000.png",
+      "2026-11-26T23:50:00Z": "data/echotop/GRM/20261126/echotop_GRM_20261126235000.png",
+      "2026-11-27T00:00:00Z": "data/echotop/GRM/20261127/echotop_GRM_20261127000000.png"
     },
     "LID": {},
     "LLM": {},
@@ -6377,7 +6401,10 @@
       "2026-11-26T22:50:00Z": "data/echotop/LPA/20261126/echotop_LPA_20261126225000.png",
       "2026-11-26T23:10:00Z": "data/echotop/LPA/20261126/echotop_LPA_20261126231000.png",
       "2026-11-26T23:20:00Z": "data/echotop/LPA/20261126/echotop_LPA_20261126232000.png",
-      "2026-11-26T23:30:00Z": "data/echotop/LPA/20261126/echotop_LPA_20261126233000.png"
+      "2026-11-26T23:30:00Z": "data/echotop/LPA/20261126/echotop_LPA_20261126233000.png",
+      "2026-11-26T23:40:00Z": "data/echotop/LPA/20261126/echotop_LPA_20261126234000.png",
+      "2026-11-26T23:50:00Z": "data/echotop/LPA/20261126/echotop_LPA_20261126235000.png",
+      "2026-11-27T00:00:00Z": "data/echotop/LPA/20261127/echotop_LPA_20261127000000.png"
     },
     "MAD": {},
     "MAL": {},
@@ -6983,7 +7010,10 @@
       "2026-11-26T22:50:00Z": "data/echotop/NJR/20261126/echotop_NJR_20261126225000.png",
       "2026-11-26T23:10:00Z": "data/echotop/NJR/20261126/echotop_NJR_20261126231000.png",
       "2026-11-26T23:20:00Z": "data/echotop/NJR/20261126/echotop_NJR_20261126232000.png",
-      "2026-11-26T23:30:00Z": "data/echotop/NJR/20261126/echotop_NJR_20261126233000.png"
+      "2026-11-26T23:30:00Z": "data/echotop/NJR/20261126/echotop_NJR_20261126233000.png",
+      "2026-11-26T23:40:00Z": "data/echotop/NJR/20261126/echotop_NJR_20261126234000.png",
+      "2026-11-26T23:50:00Z": "data/echotop/NJR/20261126/echotop_NJR_20261126235000.png",
+      "2026-11-27T00:00:00Z": "data/echotop/NJR/20261127/echotop_NJR_20261127000000.png"
     },
     "PDG": {
       "2026-11-20T00:20:00Z": "data/echotop/PDG/20261120/echotop_PDG_20261120002000.png",
@@ -7587,7 +7617,10 @@
       "2026-11-26T22:50:00Z": "data/echotop/PDG/20261126/echotop_PDG_20261126225000.png",
       "2026-11-26T23:10:00Z": "data/echotop/PDG/20261126/echotop_PDG_20261126231000.png",
       "2026-11-26T23:20:00Z": "data/echotop/PDG/20261126/echotop_PDG_20261126232000.png",
-      "2026-11-26T23:30:00Z": "data/echotop/PDG/20261126/echotop_PDG_20261126233000.png"
+      "2026-11-26T23:30:00Z": "data/echotop/PDG/20261126/echotop_PDG_20261126233000.png",
+      "2026-11-26T23:40:00Z": "data/echotop/PDG/20261126/echotop_PDG_20261126234000.png",
+      "2026-11-26T23:50:00Z": "data/echotop/PDG/20261126/echotop_PDG_20261126235000.png",
+      "2026-11-27T00:00:00Z": "data/echotop/PDG/20261127/echotop_PDG_20261127000000.png"
     },
     "PMA": {},
     "SAN": {},
@@ -8194,7 +8227,10 @@
       "2026-11-26T22:50:00Z": "data/echotop/SFT/20261126/echotop_SFT_20261126225000.png",
       "2026-11-26T23:10:00Z": "data/echotop/SFT/20261126/echotop_SFT_20261126231000.png",
       "2026-11-26T23:20:00Z": "data/echotop/SFT/20261126/echotop_SFT_20261126232000.png",
-      "2026-11-26T23:30:00Z": "data/echotop/SFT/20261126/echotop_SFT_20261126233000.png"
+      "2026-11-26T23:30:00Z": "data/echotop/SFT/20261126/echotop_SFT_20261126233000.png",
+      "2026-11-26T23:40:00Z": "data/echotop/SFT/20261126/echotop_SFT_20261126234000.png",
+      "2026-11-26T23:50:00Z": "data/echotop/SFT/20261126/echotop_SFT_20261126235000.png",
+      "2026-11-27T00:00:00Z": "data/echotop/SFT/20261127/echotop_SFT_20261127000000.png"
     },
     "SLS": {
       "2026-11-20T00:20:00Z": "data/echotop/SLS/20261120/echotop_SLS_20261120002000.png",
@@ -8797,7 +8833,10 @@
       "2026-11-26T22:50:00Z": "data/echotop/SLS/20261126/echotop_SLS_20261126225000.png",
       "2026-11-26T23:10:00Z": "data/echotop/SLS/20261126/echotop_SLS_20261126231000.png",
       "2026-11-26T23:20:00Z": "data/echotop/SLS/20261126/echotop_SLS_20261126232000.png",
-      "2026-11-26T23:30:00Z": "data/echotop/SLS/20261126/echotop_SLS_20261126233000.png"
+      "2026-11-26T23:30:00Z": "data/echotop/SLS/20261126/echotop_SLS_20261126233000.png",
+      "2026-11-26T23:40:00Z": "data/echotop/SLS/20261126/echotop_SLS_20261126234000.png",
+      "2026-11-26T23:50:00Z": "data/echotop/SLS/20261126/echotop_SLS_20261126235000.png",
+      "2026-11-27T00:00:00Z": "data/echotop/SLS/20261127/echotop_SLS_20261127000000.png"
     },
     "SSE": {
       "2026-11-20T15:20:00Z": "data/echotop/SSE/20261120/echotop_SSE_20261120152000.png",
@@ -9247,7 +9286,10 @@
       "2026-11-26T22:50:00Z": "data/echotop/SSE/20261126/echotop_SSE_20261126225000.png",
       "2026-11-26T23:10:00Z": "data/echotop/SSE/20261126/echotop_SSE_20261126231000.png",
       "2026-11-26T23:20:00Z": "data/echotop/SSE/20261126/echotop_SSE_20261126232000.png",
-      "2026-11-26T23:30:00Z": "data/echotop/SSE/20261126/echotop_SSE_20261126233000.png"
+      "2026-11-26T23:30:00Z": "data/echotop/SSE/20261126/echotop_SSE_20261126233000.png",
+      "2026-11-26T23:40:00Z": "data/echotop/SSE/20261126/echotop_SSE_20261126234000.png",
+      "2026-11-26T23:50:00Z": "data/echotop/SSE/20261126/echotop_SSE_20261126235000.png",
+      "2026-11-27T00:00:00Z": "data/echotop/SSE/20261127/echotop_SSE_20261127000000.png"
     },
     "TJV": {
       "2026-11-20T00:20:00Z": "data/echotop/TJV/20261120/echotop_TJV_20261120002000.png",
@@ -9851,7 +9893,10 @@
       "2026-11-26T22:50:00Z": "data/echotop/TJV/20261126/echotop_TJV_20261126225000.png",
       "2026-11-26T23:10:00Z": "data/echotop/TJV/20261126/echotop_TJV_20261126231000.png",
       "2026-11-26T23:20:00Z": "data/echotop/TJV/20261126/echotop_TJV_20261126232000.png",
-      "2026-11-26T23:30:00Z": "data/echotop/TJV/20261126/echotop_TJV_20261126233000.png"
+      "2026-11-26T23:30:00Z": "data/echotop/TJV/20261126/echotop_TJV_20261126233000.png",
+      "2026-11-26T23:40:00Z": "data/echotop/TJV/20261126/echotop_TJV_20261126234000.png",
+      "2026-11-26T23:50:00Z": "data/echotop/TJV/20261126/echotop_TJV_20261126235000.png",
+      "2026-11-27T00:00:00Z": "data/echotop/TJV/20261127/echotop_TJV_20261127000000.png"
     },
     "VAL": {},
     "ZAR": {}
